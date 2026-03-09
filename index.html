@@ -7470,11 +7470,11 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
           }
           return (
             <div className="bg-white rounded-card border border-gray-200 shadow-sm overflow-hidden">
-              <div className="hidden md:grid gap-2 px-4 py-2.5 bg-p-blurple/5 border-b border-gray-200 text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider" style={{gridTemplateColumns:'3fr 1fr 1fr 60px 55px 55px 1.5fr 1fr 100px'}}>
+              <div className="hidden md:grid gap-3 px-4 py-2.5 bg-p-blurple/5 border-b border-gray-200 text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider" style={{gridTemplateColumns:'2.5fr 1fr 70px 100px 50px 60px 1.2fr 1fr 100px'}}>
                 <div>OneDoc Name</div>
                 <div>Created By</div>
                 <div>Type</div>
-                <div className="text-center">Machines</div>
+                <div className="text-center">Status</div>
                 <div className="text-center">Ver</div>
                 <div className="text-center">Progress</div>
                 <div>Modified</div>
@@ -7503,12 +7503,10 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                     className={'grid grid-cols-1 gap-2 px-4 py-3 border-b border-gray-100 transition-colors hover:bg-orange-50/50 ' + (isLast ? 'bg-orange-50/30 border-l-2 border-l-p-orange' : '')}
                     style={{gridTemplateColumns:'1fr'}}
                   >
-                    <div className="hidden md:grid gap-2 items-center" style={{gridTemplateColumns:'3fr 1fr 1fr 60px 55px 55px 1.5fr 1fr 100px'}}>
+                    <div className="hidden md:grid gap-3 items-center" style={{gridTemplateColumns:'2.5fr 1fr 70px 100px 50px 60px 1.2fr 1fr 100px'}}>
                     <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={function() { onLoadProject(proj); }}>
                       <span className="font-heading font-semibold text-p-blurple text-sm truncate">{proj.projectName || 'Unnamed'}</span>
                       {isLast && <span className="hidden lg:inline flex-shrink-0 text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded bg-p-orange/15 text-p-orange">RECENT</span>}
-                      {needsSpecReview && <span className="hidden lg:inline flex-shrink-0 text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Specs received, review not finalized">SPECS</span>}
-                      {needsTCReview && <span className="hidden lg:inline flex-shrink-0 text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700" title="Customer T&Cs received, not yet finalized">T&amp;Cs</span>}
                     </div>
                     <div className="flex items-center">
                       <span className="text-xs font-body text-p-gray/70 truncate">{proj.ownerName || '—'}</span>
@@ -7516,8 +7514,10 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                     <div className="flex items-center">
                       {qt ? <span className={'text-[10px] font-heading font-semibold px-2 py-0.5 rounded-full ' + qtColor}>{qt}</span> : <span className="text-xs text-p-gray/30">—</span>}
                     </div>
-                    <div className="flex items-center justify-center">
-                      <span className="text-sm font-body text-p-gray">{loadingDetails ? '—' : machineCount}</span>
+                    <div className="flex items-center justify-center gap-1">
+                      {needsSpecReview && <span className="text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Specs received, review not finalized">SPECS</span>}
+                      {needsTCReview && <span className="text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700" title="Customer T&Cs received, not yet finalized">T&amp;Cs</span>}
+                      {!needsSpecReview && !needsTCReview && <span className="text-xs text-p-gray/30">—</span>}
                     </div>
                     <div className="flex items-center justify-center">
                       <span className="text-[10px] font-heading font-semibold px-1.5 py-0.5 rounded bg-p-blurple/10 text-p-blurple">v{proj.version || 1}</span>
