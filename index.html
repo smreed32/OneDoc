@@ -3436,10 +3436,11 @@ function TopBar({ state, setState, mobileOpen, setMobileOpen, currentProjectId, 
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-gray-200 rounded-btn bg-white shadow-sm" style={{minWidth:'180px',maxWidth:'320px',flex:'1 1 auto'}}>
             <span className="text-p-gray/40 flex-shrink-0"><Icons.search /></span>
             <input
+              data-search-input
               type="text"
               value={dashboardSearch}
               onChange={function(e) { setDashboardSearch(e.target.value); }}
-              placeholder="Search OneDocs..."
+              placeholder="Search OneDocs... (press /)"
               className="flex-1 min-w-0 text-xs font-body text-p-gray bg-transparent border-none"
               style={{outline:'none',boxShadow:'none'}}
             />
@@ -7030,6 +7031,31 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
   const [projectDetails, setProjectDetails] = React.useState({});
   const [loadingDetails, setLoadingDetails] = React.useState(false);
   const [sortBy, setSortBy] = React.useState('newest');
+  const [expandedCat, setExpandedCat] = React.useState(null);
+  const [tableFilter, setTableFilter] = React.useState('all');
+
+  // Keyboard shortcuts: R = open recent, / = focus search
+  React.useEffect(function() {
+    function handleKeyDown(e) {
+      // Don't fire if typing in an input/textarea/select
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
+      if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        if (lastProjectId) {
+          var proj = projects.find(function(p) { return p.id === lastProjectId; });
+          if (proj) onLoadProject(proj);
+        }
+      }
+      if (e.key === '/') {
+        e.preventDefault();
+        // Focus the desktop search or mobile search
+        var searchInput = document.querySelector('[data-search-input]') || document.querySelector('[data-mobile-search] input');
+        if (searchInput) searchInput.focus();
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return function() { window.removeEventListener('keydown', handleKeyDown); };
+  }, [lastProjectId, projects]);
 
   React.useEffect(() => {
     if (!projects || projects.length === 0) {
@@ -7210,31 +7236,67 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
   return (
     <div className="max-w-6xl mx-auto">
       {/* Welcome header */}
-      <div className="mb-6">
-        <h1 className="font-heading font-bold text-p-blurple" style={{fontSize:'22px'}}>Dashboard</h1>
-        <p className="text-sm font-body text-p-gray/60 mt-1">Welcome to OneDoc — your project documentation hub.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+        <div>
+          <h1 className="font-heading font-bold text-p-blurple" style={{fontSize:'22px'}}>
+            {(() => { var h = new Date().getHours(); return (h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening') + (userProfile && userProfile.fullName ? ', ' + userProfile.fullName.split(' ')[0] : ''); })()}
+          </h1>
+          <p className="text-sm font-body text-p-gray/60 mt-1">Your project documentation hub.</p>
+        </div>
+        <button
+          onClick={onNewProject}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-p-orange text-white font-heading font-semibold text-sm rounded-btn hover:bg-p-orange-hover transition-colors shadow-sm whitespace-nowrap"
+        >
+          <Icons.plus /> New OneDoc
+        </button>
       </div>
 
       {/* Summary Cards — My / Total split */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">OneDocs</span>
-            <span className="w-8 h-8 rounded-lg bg-p-blurple/10 flex items-center justify-center text-p-blurple"><Icons.projects /></span>
+      {(() => {
+        // Compute overall average completion for 3rd card
+        var avgCompletion = 0;
+        var compCount = 0;
+        if (!loadingDetails) {
+          projects.forEach(function(p) {
+            if (userProfile && p.ownerId === userProfile.id && projectDetails[p.id]) {
+              avgCompletion += calculateCompletion(projectDetails[p.id]);
+              compCount++;
+            }
+          });
+        }
+        var avgPct = compCount > 0 ? Math.round(avgCompletion / compCount) : 0;
+        var avgColor = avgPct >= 75 ? '#42725e' : avgPct >= 40 ? '#d4a017' : '#e04426';
+        return (
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">OneDocs</span>
+                <span className="w-8 h-8 rounded-lg bg-p-blurple/10 flex items-center justify-center text-p-blurple"><Icons.projects /></span>
+              </div>
+              <p className="text-2xl font-heading font-bold text-p-blurple">{loadingProjects ? '—' : stats.my.total}</p>
+              <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingProjects ? '' : 'of ' + stats.all.total + ' total'}</p>
+            </div>
+            <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">Active (7d)</span>
+                <span className="w-8 h-8 rounded-lg bg-p-orange/10 flex items-center justify-center text-p-orange"><Icons.revisions /></span>
+              </div>
+              <p className="text-2xl font-heading font-bold text-p-orange">{loadingProjects ? '—' : stats.my.recent}</p>
+              <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingProjects ? '' : 'of ' + stats.all.recent + ' total'}</p>
+            </div>
+            <div className="col-span-2 lg:col-span-1 bg-white rounded-card border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">Avg Completion</span>
+                <span className="w-8 h-8 rounded-lg flex items-center justify-center" style={{backgroundColor: avgColor + '15', color: avgColor}}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                </span>
+              </div>
+              <p className="text-2xl font-heading font-bold" style={{color: avgColor}}>{loadingDetails ? '—' : avgPct + '%'}</p>
+              <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingDetails ? '' : 'across ' + compCount + ' OneDoc' + (compCount !== 1 ? 's' : '')}</p>
+            </div>
           </div>
-          <p className="text-2xl font-heading font-bold text-p-blurple">{loadingProjects ? '—' : stats.my.total}</p>
-          <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingProjects ? '' : 'of ' + stats.all.total + ' total'}</p>
-        </div>
-        <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">Active (7d)</span>
-            <span className="w-8 h-8 rounded-lg bg-p-orange/10 flex items-center justify-center text-p-orange"><Icons.revisions /></span>
-          </div>
-          <p className="text-2xl font-heading font-bold text-p-orange">{loadingProjects ? '—' : stats.my.recent}</p>
-          <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingProjects ? '' : 'of ' + stats.all.recent + ' total'}</p>
-        </div>
-
-      </div>
+        );
+      })()}
 
       {/* Continue Where You Left Off */}
       {lastWorkedId && projects.length > 0 && (() => {
@@ -7251,7 +7313,7 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
           <div className="mb-6">
             <h3 className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-3">Continue Where You Left Off</h3>
             <div
-              className="bg-white rounded-card border-2 border-p-orange p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              className="bg-white rounded-card border-2 border-p-orange p-4 shadow-sm cursor-pointer hover:shadow-lg transition-all duration-200 hover:-translate-y-0.5"
               onClick={function() { onLoadProject(lastProj); }}
             >
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -7303,12 +7365,28 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                     var myPct = catAvg('my', cat.key);
                     var allPct = catAvg('all', cat.key);
                     var barColor = myPct >= 75 ? '#42725e' : myPct >= 40 ? '#d4a017' : '#e04426';
+                    var isExpanded = expandedCat === cat.key;
+                    // Build drill-down list: my OneDocs sorted by this category score (lowest first)
+                    var drillDown = [];
+                    if (isExpanded) {
+                      projects.forEach(function(p) {
+                        if (userProfile && p.ownerId === userProfile.id && projectDetails[p.id]) {
+                          var cats = calculateCompletionByCategory(projectDetails[p.id]);
+                          if (cats) drillDown.push({ proj: p, score: cats[cat.key] });
+                        }
+                      });
+                      drillDown.sort(function(a, b) { return a.score - b.score; });
+                    }
                     return (
                       <div key={cat.key}>
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="min-w-0">
-                            <span className="text-xs font-heading font-semibold text-p-blurple">{cat.label}</span>
-                            <span className="hidden sm:inline text-[10px] font-body text-p-gray/40 ml-2">{cat.sub}</span>
+                        <div
+                          className="flex items-center justify-between mb-1 cursor-pointer group"
+                          onClick={function() { setExpandedCat(isExpanded ? null : cat.key); }}
+                        >
+                          <div className="min-w-0 flex items-center gap-1">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className={'text-p-gray/30 transition-transform duration-200 ' + (isExpanded ? 'rotate-90' : '')}><polyline points="9 18 15 12 9 6"/></svg>
+                            <span className="text-xs font-heading font-semibold text-p-blurple group-hover:text-p-orange transition-colors">{cat.label}</span>
+                            <span className="hidden sm:inline text-[10px] font-body text-p-gray/40 ml-1">{cat.sub}</span>
                           </div>
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <span className="text-xs font-heading font-bold" style={{color:barColor}}>{myPct}%</span>
@@ -7319,6 +7397,24 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                           <div className="absolute inset-y-0 left-0 rounded-full bg-p-blurple/10 transition-all" style={{width: allPct + '%'}}></div>
                           <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{width: myPct + '%', backgroundColor: barColor}}></div>
                         </div>
+                        {isExpanded && drillDown.length > 0 && (
+                          <div className="mt-2 ml-3 space-y-1 pb-1">
+                            {drillDown.map(function(item) {
+                              var sc = item.score;
+                              var scColor = sc >= 75 ? '#42725e' : sc >= 40 ? '#d4a017' : '#e04426';
+                              return (
+                                <div
+                                  key={item.proj.id}
+                                  className="flex items-center justify-between py-1 px-2 rounded hover:bg-gray-50 cursor-pointer transition-colors"
+                                  onClick={function(e) { e.stopPropagation(); onLoadProject(item.proj); }}
+                                >
+                                  <span className="text-[11px] font-body text-p-gray/70 truncate">{item.proj.projectName || 'Unnamed'}</span>
+                                  <span className="text-[11px] font-heading font-bold ml-2 flex-shrink-0" style={{color: scColor}}>{sc}%</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -7361,32 +7457,93 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
         </div>
       )}
 
-      {/* Mobile search (TopBar search is hidden on small screens) + Sort */}
+      {/* Recent Activity Feed (collapsible) */}
+      {!loadingDetails && projects.length > 1 && (() => {
+        // Build activity from project updatedAt + lastEditedByName
+        var activities = projects.slice().sort(function(a, b) {
+          return (b.updatedAt || '').localeCompare(a.updatedAt || '');
+        }).slice(0, 5).map(function(p) {
+          return { proj: p, who: p.lastEditedByName || p.ownerName || 'Someone', when: relativeTime(p.updatedAt) };
+        });
+        return activities.length > 0 ? (
+          <details className="mb-6 group">
+            <summary className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-2 cursor-pointer list-none flex items-center gap-1 select-none">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-p-gray/30 transition-transform duration-200 group-open:rotate-90"><polyline points="9 18 15 12 9 6"/></svg>
+              Recent Activity
+            </summary>
+            <div className="bg-white rounded-card border border-gray-200 p-3 shadow-sm">
+              <div className="space-y-2">
+                {activities.map(function(a, i) {
+                  return (
+                    <div key={a.proj.id + '-' + i} className="flex items-center gap-2.5 text-xs">
+                      <div className="w-6 h-6 rounded-full bg-p-blurple/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-[9px] font-heading font-bold text-p-blurple">{a.who.charAt(0).toUpperCase()}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="font-body text-p-gray/70"><strong className="font-heading text-p-blurple">{a.who}</strong> edited </span>
+                        <span className="font-heading font-semibold text-p-blurple cursor-pointer hover:text-p-orange transition-colors" onClick={function() { onLoadProject(a.proj); }}>{a.proj.projectName || 'Unnamed'}</span>
+                      </div>
+                      <span className="text-[10px] font-body text-p-gray/30 flex-shrink-0">{a.when}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </details>
+        ) : null;
+      })()}
+
+      {/* Filter pills + Mobile search + Sort */}
       {!loadingProjects && projects.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-2 mb-5">
-          <div className="flex-1 flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-btn bg-white shadow-sm sm:hidden">
-            <span className="text-p-gray/50 flex-shrink-0"><Icons.search /></span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={function(e) { setSearchQuery(e.target.value); }}
-              placeholder="Search OneDocs..."
-              className="flex-1 min-w-0 text-sm font-body text-p-gray bg-transparent border-none"
-              style={{outline:'none',boxShadow:'none'}}
-            />
-            {searchQuery && <button onClick={function() { setSearchQuery(''); }} className="text-p-gray/40 hover:text-p-gray text-xs">&times;</button>}
+        <div className="space-y-3 mb-5">
+          {/* Quick filter pills */}
+          <div className="flex flex-wrap gap-2">
+            {[
+              { key: 'all', label: 'All' },
+              { key: 'firm', label: 'Firm' },
+              { key: 'budget', label: 'Budget' },
+              { key: 'rebid', label: 'Rebid' },
+              { key: 'incomplete', label: 'Incomplete' },
+              { key: 'attention', label: 'Needs Attention' }
+            ].map(function(f) {
+              var isActive = tableFilter === f.key;
+              return (
+                <button
+                  key={f.key}
+                  onClick={function() { setTableFilter(f.key); }}
+                  className={'px-3 py-1.5 text-[11px] font-heading font-semibold rounded-full border transition-all duration-150 ' + (isActive ? 'bg-p-blurple text-white border-p-blurple shadow-sm' : 'bg-white text-p-gray/60 border-gray-200 hover:border-p-blurple/30 hover:text-p-blurple')}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
           </div>
-          <div className="flex-1" />
-          <select
-            value={sortBy}
-            onChange={function(e) { setSortBy(e.target.value); }}
-            className="px-3 py-2 border border-gray-200 rounded-btn text-sm font-body text-p-gray bg-white shadow-sm"
-          >
-            <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
-            <option value="name">Name A-Z</option>
-            <option value="customer">Company A-Z</option>
-          </select>
+          {/* Mobile search + Sort row */}
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div data-mobile-search className="flex-1 flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-btn bg-white shadow-sm sm:hidden">
+              <span className="text-p-gray/50 flex-shrink-0"><Icons.search /></span>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={function(e) { setSearchQuery(e.target.value); }}
+                placeholder="Search OneDocs..."
+                className="flex-1 min-w-0 text-sm font-body text-p-gray bg-transparent border-none"
+                style={{outline:'none',boxShadow:'none'}}
+              />
+              {searchQuery && <button onClick={function() { setSearchQuery(''); }} className="text-p-gray/40 hover:text-p-gray text-xs">&times;</button>}
+            </div>
+            <div className="flex-1" />
+            <select
+              value={sortBy}
+              onChange={function(e) { setSortBy(e.target.value); }}
+              className="px-3 py-2 border border-gray-200 rounded-btn text-sm font-body text-p-gray bg-white shadow-sm"
+            >
+              <option value="newest">Newest First</option>
+              <option value="oldest">Oldest First</option>
+              <option value="name">Name A-Z</option>
+              <option value="customer">Company A-Z</option>
+            </select>
+          </div>
         </div>
       )}
 
@@ -7408,8 +7565,30 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
           </button>
         </div>
       ) : (() => {
-        var myList = sortList(searchedProjects.filter(function(p) { return userProfile && p.ownerId === userProfile.id; }));
-        var othersList = sortList(searchedProjects.filter(function(p) { return !userProfile || p.ownerId !== userProfile.id; }));
+        // Apply table filter
+        var filteredProjects = searchedProjects.filter(function(p) {
+          if (tableFilter === 'all') return true;
+          var fd = projectDetails[p.id];
+          if (!fd) return tableFilter === 'all';
+          var qt = (fd.rfq && fd.rfq.quoteType) || '';
+          if (tableFilter === 'firm') return qt === 'Firm';
+          if (tableFilter === 'budget') return qt === 'Budget';
+          if (tableFilter === 'rebid') return qt === 'Rebid';
+          if (tableFilter === 'incomplete') {
+            var comp = calculateCompletion(fd);
+            return comp < 80;
+          }
+          if (tableFilter === 'attention') {
+            var hasCustomerSpecs = fd.specifications && fd.specifications.specType === 'customer';
+            var specsOk = fd.rfq && fd.rfq.specsFinalized;
+            var hasCustTCs = fd.rfq && fd.rfq.customerTandCs;
+            var tcsOk = fd.rfq && fd.rfq.tandCsSigned;
+            return (hasCustomerSpecs && !specsOk) || (hasCustTCs && !tcsOk);
+          }
+          return true;
+        });
+        var myList = sortList(filteredProjects.filter(function(p) { return userProfile && p.ownerId === userProfile.id; }));
+        var othersList = sortList(filteredProjects.filter(function(p) { return !userProfile || p.ownerId !== userProfile.id; }));
 
         function renderTable(list, emptyMsg) {
           if (list.length === 0) {
@@ -7420,8 +7599,8 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
             );
           }
           return (
-            <div className="bg-white rounded-card border border-gray-200 shadow-sm overflow-hidden">
-              <div className="hidden md:grid gap-3 px-4 py-2.5 bg-p-blurple/5 border-b border-gray-200 text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider" style={{gridTemplateColumns:'2.5fr 1fr 70px 100px 50px 60px 1.2fr 1fr 100px'}}>
+            <div className="bg-white rounded-card border border-gray-200 shadow-sm overflow-hidden" style={{maxHeight:'600px',overflowY:'auto'}}>
+              <div className="hidden md:grid gap-3 px-4 py-2.5 bg-p-blurple/5 border-b border-gray-200 text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider sticky top-0 z-10 bg-white" style={{gridTemplateColumns:'2.5fr 1fr 70px 100px 50px 60px 1.2fr 1fr 100px', backgroundColor:'rgba(244,244,250,1)'}}>
                 <div>OneDoc Name</div>
                 <div>Created By</div>
                 <div>Type</div>
@@ -7455,9 +7634,21 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                     style={{gridTemplateColumns:'1fr'}}
                   >
                     <div className="hidden md:grid gap-3 items-center" style={{gridTemplateColumns:'2.5fr 1fr 70px 100px 50px 60px 1.2fr 1fr 100px'}}>
-                    <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={function() { onLoadProject(proj); }}>
+                    <div className="flex items-center gap-2 min-w-0 cursor-pointer relative group/row" onClick={function() { onLoadProject(proj); }}>
                       <span className="font-heading font-semibold text-p-blurple text-sm truncate">{proj.projectName || 'Unnamed'}</span>
                       {isLast && <span className="hidden lg:inline flex-shrink-0 text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded bg-p-orange/15 text-p-orange">RECENT</span>}
+                      {/* Hover preview tooltip */}
+                      <div className="absolute left-0 top-full mt-1 z-20 hidden group-hover/row:block w-56 p-3 bg-white rounded-lg shadow-lg border border-gray-200 pointer-events-none">
+                        <p className="text-[10px] font-heading font-semibold text-p-blurple mb-1 truncate">{proj.projectName || 'Unnamed'}</p>
+                        <div className="space-y-0.5 text-[10px] font-body text-p-gray/60">
+                          <p>Company: <strong className="text-p-gray">{proj.customerName || '—'}</strong></p>
+                          {proj.opportunityNumber && <p>Opp #: <strong className="text-p-gray">{proj.opportunityNumber}</strong></p>}
+                          {qt && <p>Type: <strong className="text-p-gray">{qt}</strong></p>}
+                          {machineCount > 0 && <p>Machines: <strong className="text-p-gray">{machineCount}</strong></p>}
+                          {completion !== null && <p>Completion: <strong className="text-p-gray">{completion}%</strong></p>}
+                          {fd && fd.rfq && fd.rfq.rsmName && <p>RSM: <strong className="text-p-gray">{fd.rfq.rsmName}</strong></p>}
+                        </div>
+                      </div>
                     </div>
                     <div className="flex items-center">
                       <span className="text-xs font-body text-p-gray/70 truncate">{proj.ownerName || '—'}</span>
@@ -7488,23 +7679,34 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                       {canDelete(proj) && <button onClick={function(e) { e.stopPropagation(); handleDelete(proj); }} title="Delete" className="px-1.5 py-1 text-xs border border-p-red/30 text-p-red rounded-btn hover:bg-red-50 transition-colors"><Icons.trash /></button>}
                     </div>
                     </div>
-                    {/* Mobile compact row */}
-                    <div className="md:hidden flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        {loadingDetails || completion === null ? <span className="text-xs text-p-gray/30">—</span> : <CompletionRing percent={completion} size={28} strokeWidth={2.5} />}
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs font-body text-p-gray/50 truncate">{proj.customerName || 'No company'}</span>
-                            {needsSpecReview && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Pending spec review" />}
-                            {needsTCReview && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" title="Pending T&C finalization" />}
+                    {/* Mobile compact row — swipeable */}
+                    <div className="md:hidden relative overflow-hidden" style={{touchAction:'pan-y'}}>
+                      <div
+                        className="flex items-center justify-between gap-2 bg-white"
+                        onClick={function() { onLoadProject(proj); }}
+                        onTouchStart={function(e) { e.currentTarget._swipeStartX = e.touches[0].clientX; }}
+                        onTouchEnd={function(e) {
+                          var diff = e.changedTouches[0].clientX - (e.currentTarget._swipeStartX || 0);
+                          if (diff > 80) onLoadProject(proj);
+                          else if (diff < -80 && canDelete(proj)) handleDelete(proj);
+                        }}
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {loadingDetails || completion === null ? <span className="text-xs text-p-gray/30">—</span> : <CompletionRing percent={completion} size={28} strokeWidth={2.5} />}
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-body text-p-gray/50 truncate">{proj.customerName || 'No company'}</span>
+                              {needsSpecReview && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Pending spec review" />}
+                              {needsTCReview && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" title="Pending T&C finalization" />}
+                            </div>
+                            <span className="text-xs font-body text-p-gray/30">{relativeTime(proj.updatedAt)}</span>
                           </div>
-                          <span className="text-xs font-body text-p-gray/30">{relativeTime(proj.updatedAt)}</span>
                         </div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button onClick={function() { onLoadProject(proj); }} className="px-2 py-1 text-xs font-heading font-semibold text-p-orange">Open</button>
-                        <button onClick={function() { handleDuplicate(proj); }} className="px-1.5 py-1 text-xs text-p-gray"><Icons.duplicate /></button>
-                        {canDelete(proj) && <button onClick={function() { handleDelete(proj); }} className="px-1.5 py-1 text-xs text-p-red"><Icons.trash /></button>}
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={function(e) { e.stopPropagation(); onLoadProject(proj); }} className="px-2 py-1 text-xs font-heading font-semibold text-p-orange">Open</button>
+                          <button onClick={function(e) { e.stopPropagation(); handleDuplicate(proj); }} className="px-1.5 py-1 text-xs text-p-gray"><Icons.duplicate /></button>
+                          {canDelete(proj) && <button onClick={function(e) { e.stopPropagation(); handleDelete(proj); }} className="px-1.5 py-1 text-xs text-p-red"><Icons.trash /></button>}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -7531,6 +7733,23 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
           </React.Fragment>
         );
       })()}
+      {/* Mobile floating bottom action bar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-gray-200 px-4 py-2.5 flex items-center justify-between gap-3 shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+        <button
+          onClick={onNewProject}
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-p-orange text-white font-heading font-semibold text-sm rounded-btn"
+        >
+          <Icons.plus /> New OneDoc
+        </button>
+        <button
+          onClick={function() { var el = document.querySelector('[data-mobile-search]'); if (el) { el.scrollIntoView({ behavior: 'smooth' }); el.querySelector('input').focus(); } }}
+          className="flex items-center justify-center w-10 h-10 bg-p-blurple/10 text-p-blurple rounded-btn"
+        >
+          <Icons.search />
+        </button>
+      </div>
+      {/* Bottom padding for mobile floating bar */}
+      <div className="md:hidden h-16" />
     </div>
   );
 }
