@@ -3099,8 +3099,12 @@ function Sidebar({ state, setState, collapsed, setCollapsed, mobileOpen, setMobi
     {
       label: 'OVERVIEW',
       items: [
-        { id: 'rfq', label: 'Request for Quote', icon: 'rfq' },
+        { id: 'rfq', label: 'Primary Info & Summary', icon: 'rfq' },
       ]
+    },
+    machineTabs.length > 0 && {
+      label: 'EQUIPMENT',
+      items: machineTabs
     },
     {
       label: 'DATA',
@@ -3115,10 +3119,6 @@ function Sidebar({ state, setState, collapsed, setCollapsed, mobileOpen, setMobi
         { id: 'specs', label: 'Specifications', icon: 'specs' },
         { id: 'tandc', label: 'Terms & Conditions', icon: 'tandc' },
       ].filter(Boolean)
-    },
-    machineTabs.length > 0 && {
-      label: 'EQUIPMENT',
-      items: machineTabs
     },
     {
       label: 'COMMERCIAL',
@@ -3360,7 +3360,7 @@ function TopBar({ state, setState, mobileOpen, setMobileOpen, currentProjectId, 
   function getPageTitle() {
     switch(activeTab) {
       case 'dashboard': return 'Dashboard';
-      case 'rfq': return 'Request for Quote';
+      case 'rfq': return 'Primary Info & Summary';
       case 'cpp': return 'Case / Product / Pallet';
       case 'facility': return 'Facility Info';
       case 'specs': return 'Specifications';
@@ -7856,7 +7856,7 @@ function useIsMobile() {
 
 function MobileHeader({ currentProjectName, activeTab, autoSaving, isDirty, currentProjectId, onNewProject, onOpenAttachments, attachmentCount, formState }) {
   var pageTitle = activeTab === 'dashboard' ? 'Dashboard'
-    : activeTab === 'rfq' ? 'Request for Quote'
+    : activeTab === 'rfq' ? 'Primary Info & Summary'
     : activeTab === 'cpp' ? 'Case / Product / Pallet'
     : activeTab === 'facility' ? 'Facility Info'
     : activeTab === 'specs' ? 'Specifications'
@@ -7912,7 +7912,7 @@ function MobileHeader({ currentProjectName, activeTab, autoSaving, isDirty, curr
 function MobileBottomNav({ activeTab, onNavigate, moreOpen, setMoreOpen, rfq }) {
   var tabs = [
     { id: 'dashboard', label: 'Home', icon: Icons.dashboard },
-    { id: 'rfq', label: 'RFQ', icon: Icons.rfq },
+    { id: 'rfq', label: 'Primary', icon: Icons.rfq },
     { id: 'cpp', label: 'Data', icon: Icons.cpp },
   ];
 
