@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <base href="/OneDoc/">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#343551">
@@ -7216,7 +7217,7 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
       </div>
 
       {/* Summary Cards — My / Total split */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">OneDocs</span>
@@ -7233,29 +7234,61 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
           <p className="text-2xl font-heading font-bold text-p-orange">{loadingProjects ? '—' : stats.my.recent}</p>
           <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingProjects ? '' : 'of ' + stats.all.recent + ' total'}</p>
         </div>
-        <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">Machines</span>
-            <span className="w-8 h-8 rounded-lg bg-p-teal/10 flex items-center justify-center text-p-teal"><Icons.machine /></span>
-          </div>
-          <p className="text-2xl font-heading font-bold text-p-teal">{loadingDetails ? '—' : stats.my.machines}</p>
-          <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingDetails ? '' : 'of ' + stats.all.machines + ' total'}</p>
-        </div>
-        <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider">Booked Value</span>
-            <span className="w-8 h-8 rounded-lg bg-p-forest/10 flex items-center justify-center text-p-forest"><Icons.booking /></span>
-          </div>
-          <p className="text-2xl font-heading font-bold text-p-forest">{loadingDetails ? '—' : ('$' + stats.my.booked.toLocaleString())}</p>
-          <p className="text-[11px] font-body text-p-gray/40 mt-0.5">{loadingDetails ? '' : 'of $' + stats.all.booked.toLocaleString() + ' total'}</p>
-        </div>
+
       </div>
 
-      {/* Data Completeness by Category + Needs Attention */}
+      {/* Continue Where You Left Off */}
+      {lastWorkedId && projects.length > 0 && (() => {
+        var lastProj = projects.find(function(p) { return p.id === lastWorkedId; });
+        if (!lastProj) return null;
+        var fd = projectDetails[lastProj.id];
+        var machineCount = 0;
+        var qt = '';
+        if (fd) {
+          machineCount = ((fd.rfq && fd.rfq.machines) || []).filter(function(m) { return m.selectedModel; }).length;
+          qt = (fd.rfq && fd.rfq.quoteType) || '';
+        }
+        return (
+          <div className="mb-6">
+            <h3 className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-3">Continue Where You Left Off</h3>
+            <div
+              className="bg-white rounded-card border-2 border-p-orange p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
+              onClick={function() { onLoadProject(lastProj); }}
+            >
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    <span className="font-heading font-bold text-p-blurple text-base">{lastProj.projectName || 'Unnamed'}</span>
+                    <span className="text-[10px] font-heading font-semibold px-2 py-0.5 rounded-full bg-p-orange text-white">LAST OPENED</span>
+                    <span className="text-[10px] font-heading font-semibold px-1.5 py-0.5 rounded bg-p-blurple/10 text-p-blurple">v{lastProj.version || 1}</span>
+                  </div>
+                  <p className="text-sm font-body text-p-gray/70">
+                    {lastProj.customerName || 'No company'}{lastProj.opportunityNumber ? ' · ' + lastProj.opportunityNumber : ''}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2 text-xs font-body text-p-gray/50">
+                    {qt && <span>Quote: <strong className="text-p-gray">{qt}</strong></span>}
+                    {machineCount > 0 && <span>Machines: <strong className="text-p-gray">{machineCount}</strong></span>}
+                    <span>Modified {relativeTime(lastProj.updatedAt)}</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4 w-full sm:w-auto">
+                  {(() => { var compPct = fd ? calculateCompletion(fd) : null; return loadingDetails || compPct === null ? null : React.createElement(CompletionRing, { percent: compPct, size: 44, strokeWidth: 3.5 }); })()}
+                  <span className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-p-orange text-white font-heading font-semibold text-sm rounded-btn w-full sm:w-auto">
+                    Open
+                    <Icons.chevronRight />
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Data Completeness by Category */}
       {!loadingDetails && stats.my.total > 0 && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <div className="mb-6">
           {/* Data Quality Heatmap */}
-          <div className="lg:col-span-2 bg-white rounded-card border border-gray-200 p-4 shadow-sm">
+          <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
             <h3 className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-4">My Data Completeness</h3>
             <div className="space-y-3">
               {[
@@ -7291,40 +7324,6 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                 );
               })}
             </div>
-          </div>
-
-          {/* Needs Attention */}
-          <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
-            <h3 className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-3">Needs Attention</h3>
-            {needsAttention.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 text-center">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#42725e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                <p className="text-sm font-body text-p-gray/50 mt-2">All caught up</p>
-                <p className="text-[10px] font-body text-p-gray/30 mt-0.5">No OneDocs need immediate attention</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {needsAttention.map(function(item) {
-                  return (
-                    <div
-                      key={item.proj.id}
-                      className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-orange-50/50 cursor-pointer transition-colors"
-                      onClick={function() { onLoadProject(item.proj); }}
-                    >
-                      <CompletionRing percent={item.pct} size={30} strokeWidth={2.5} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-heading font-semibold text-p-blurple truncate">{item.proj.projectName || 'Unnamed'}</p>
-                        <p className="text-[10px] font-body text-p-gray/40">
-                          {item.stale ? 'Untouched 30+ days' : item.pct + '% complete'}
-                          {item.stale && item.pct > 0 ? ' · ' + item.pct + '%' : ''}
-                        </p>
-                      </div>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#bebebe" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -7391,53 +7390,6 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
           </select>
         </div>
       )}
-
-      {/* Continue Where You Left Off */}
-      {lastWorkedId && projects.length > 0 && (() => {
-        var lastProj = projects.find(function(p) { return p.id === lastWorkedId; });
-        if (!lastProj) return null;
-        var fd = projectDetails[lastProj.id];
-        var machineCount = 0;
-        var qt = '';
-        if (fd) {
-          machineCount = ((fd.rfq && fd.rfq.machines) || []).filter(function(m) { return m.selectedModel; }).length;
-          qt = (fd.rfq && fd.rfq.quoteType) || '';
-        }
-        return (
-          <div className="mb-6">
-            <h3 className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-3">Continue Where You Left Off</h3>
-            <div
-              className="bg-white rounded-card border-2 border-p-orange p-4 shadow-sm cursor-pointer hover:shadow-md transition-shadow"
-              onClick={function() { onLoadProject(lastProj); }}
-            >
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-1">
-                    <span className="font-heading font-bold text-p-blurple text-base">{lastProj.projectName || 'Unnamed'}</span>
-                    <span className="text-[10px] font-heading font-semibold px-2 py-0.5 rounded-full bg-p-orange text-white">LAST OPENED</span>
-                    <span className="text-[10px] font-heading font-semibold px-1.5 py-0.5 rounded bg-p-blurple/10 text-p-blurple">v{lastProj.version || 1}</span>
-                  </div>
-                  <p className="text-sm font-body text-p-gray/70">
-                    {lastProj.customerName || 'No company'}{lastProj.opportunityNumber ? ' · ' + lastProj.opportunityNumber : ''}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2 text-xs font-body text-p-gray/50">
-                    {qt && <span>Quote: <strong className="text-p-gray">{qt}</strong></span>}
-                    {machineCount > 0 && <span>Machines: <strong className="text-p-gray">{machineCount}</strong></span>}
-                    <span>Modified {relativeTime(lastProj.updatedAt)}</span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 flex-shrink-0 sm:ml-4 w-full sm:w-auto">
-                  {(() => { var compPct = fd ? calculateCompletion(fd) : null; return loadingDetails || compPct === null ? null : React.createElement(CompletionRing, { percent: compPct, size: 44, strokeWidth: 3.5 }); })()}
-                  <span className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-p-orange text-white font-heading font-semibold text-sm rounded-btn w-full sm:w-auto">
-                    Open
-                    <Icons.chevronRight />
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* Project Tables */}
       {!loadingProjects && projects.length === 0 ? (
