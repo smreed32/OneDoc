@@ -7,7 +7,6 @@
 <meta name="theme-color" content="#343551">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<base href="/OneDoc/">
 <title>OneDoc — Project Documentation | Pearson Packaging Systems</title>
 <link rel="icon" href="assets/logos/icon-logo.png" type="image/png">
 <link rel="apple-touch-icon" href="assets/logos/icon-logo.png">
@@ -7287,78 +7286,78 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
       {/* Data Completeness by Category */}
       {!loadingDetails && stats.my.total > 0 && (
         <div className="mb-6">
-          {/* Data Quality Heatmap */}
           <div className="bg-white rounded-card border border-gray-200 p-4 shadow-sm">
-            <h3 className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-4">My Data Completeness</h3>
-            <div className="space-y-3">
-              {[
-                { key:'identity', label:'Project Identity', sub:'Company, Opp #, RSM, Type, Contact' },
-                { key:'machConfig', label:'Machine Configuration', sub:'Construction, voltage, NEMA, template fields' },
-                { key:'cppData', label:'Case / Product / Pallet', sub:'Case rows, products, pallets, patterns, packing' },
-                { key:'facility', label:'Facility Information', sub:'Temps, height, environment, cleaning' },
-                { key:'booking', label:'Booking & Commercial', sub:'Value, lead time, payment, estimator, shipping' },
-                { key:'finalization', label:'Specs / T&Cs / Summary', sub:'Specifications, terms, executive summary' }
-              ].map(function(cat) {
-                var myPct = catAvg('my', cat.key);
-                var allPct = catAvg('all', cat.key);
-                var barColor = myPct >= 75 ? '#42725e' : myPct >= 40 ? '#d4a017' : '#e04426';
-                return (
-                  <div key={cat.key}>
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="min-w-0">
-                        <span className="text-xs font-heading font-semibold text-p-blurple">{cat.label}</span>
-                        <span className="hidden sm:inline text-[10px] font-body text-p-gray/40 ml-2">{cat.sub}</span>
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Left: Data Completeness bars */}
+              <div className="flex-1 min-w-0">
+                <h3 className="text-[10px] font-heading font-semibold text-p-gray/50 uppercase tracking-wider mb-4">My Data Completeness</h3>
+                <div className="space-y-3">
+                  {[
+                    { key:'identity', label:'Project Identity', sub:'Company, Opp #, RSM, Type, Contact' },
+                    { key:'machConfig', label:'Machine Configuration', sub:'Construction, voltage, NEMA, template fields' },
+                    { key:'cppData', label:'Case / Product / Pallet', sub:'Case rows, products, pallets, patterns, packing' },
+                    { key:'facility', label:'Facility Information', sub:'Temps, height, environment, cleaning' },
+                    { key:'booking', label:'Booking & Commercial', sub:'Value, lead time, payment, estimator, shipping' },
+                    { key:'finalization', label:'Specs / T&Cs / Summary', sub:'Specifications, terms, executive summary' }
+                  ].map(function(cat) {
+                    var myPct = catAvg('my', cat.key);
+                    var allPct = catAvg('all', cat.key);
+                    var barColor = myPct >= 75 ? '#42725e' : myPct >= 40 ? '#d4a017' : '#e04426';
+                    return (
+                      <div key={cat.key}>
+                        <div className="flex items-center justify-between mb-1">
+                          <div className="min-w-0">
+                            <span className="text-xs font-heading font-semibold text-p-blurple">{cat.label}</span>
+                            <span className="hidden sm:inline text-[10px] font-body text-p-gray/40 ml-2">{cat.sub}</span>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className="text-xs font-heading font-bold" style={{color:barColor}}>{myPct}%</span>
+                            <span className="text-[10px] font-body text-p-gray/30">team {allPct}%</span>
+                          </div>
+                        </div>
+                        <div className="relative h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className="absolute inset-y-0 left-0 rounded-full bg-p-blurple/10 transition-all" style={{width: allPct + '%'}}></div>
+                          <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{width: myPct + '%', backgroundColor: barColor}}></div>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs font-heading font-bold" style={{color:barColor}}>{myPct}%</span>
-                        <span className="text-[10px] font-body text-p-gray/30">team {allPct}%</span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right: Pending Action Counters */}
+              {(stats.all.pendingSpecs > 0 || stats.all.pendingTCs > 0) && (
+                <div className="lg:w-64 flex-shrink-0 flex flex-row lg:flex-col gap-3 lg:border-l lg:border-gray-100 lg:pl-4">
+                  {stats.all.pendingSpecs > 0 && (
+                    <div className="flex items-center gap-2.5 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-card flex-1 lg:flex-initial">
+                      <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                      </span>
+                      <div>
+                        <span className="text-[10px] font-heading font-semibold text-amber-800/70 uppercase tracking-wider">Pending Spec Review</span>
+                        <p className="text-xs font-body text-amber-700/70 mt-0.5">
+                          <strong className="font-heading text-amber-800">{stats.all.pendingSpecs}</strong> OneDoc{stats.all.pendingSpecs !== 1 ? 's' : ''} awaiting finalization
+                        </p>
                       </div>
                     </div>
-                    <div className="relative h-2 rounded-full bg-gray-100 overflow-hidden">
-                      {/* Team bar (lighter, behind) */}
-                      <div className="absolute inset-y-0 left-0 rounded-full bg-p-blurple/10 transition-all" style={{width: allPct + '%'}}></div>
-                      {/* My bar (solid, in front) */}
-                      <div className="absolute inset-y-0 left-0 rounded-full transition-all" style={{width: myPct + '%', backgroundColor: barColor}}></div>
+                  )}
+                  {stats.all.pendingTCs > 0 && (
+                    <div className="flex items-center gap-2.5 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-card flex-1 lg:flex-initial">
+                      <span className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                      </span>
+                      <div>
+                        <span className="text-[10px] font-heading font-semibold text-purple-800/70 uppercase tracking-wider">Pending T&amp;C Finalization</span>
+                        <p className="text-xs font-body text-purple-700/70 mt-0.5">
+                          <strong className="font-heading text-purple-800">{stats.all.pendingTCs}</strong> OneDoc{stats.all.pendingTCs !== 1 ? 's' : ''} awaiting finalization
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
-
-
-
-      {/* Pending Action Counters — Spec Review & T&C Resolution */}
-      {!loadingDetails && (stats.all.pendingSpecs > 0 || stats.all.pendingTCs > 0) && (
-        <div className="flex flex-wrap gap-3 mb-6">
-          {stats.all.pendingSpecs > 0 && (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-card shadow-sm">
-              <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-              </span>
-              <div>
-                <span className="text-[10px] font-heading font-semibold text-amber-800/70 uppercase tracking-wider">Pending Spec Review</span>
-                <p className="text-xs font-body text-amber-700/70 mt-0.5">
-                  <strong className="font-heading text-amber-800">{stats.all.pendingSpecs}</strong> OneDoc{stats.all.pendingSpecs !== 1 ? 's' : ''} awaiting finalization
-                </p>
-              </div>
-            </div>
-          )}
-          {stats.all.pendingTCs > 0 && (
-            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-card shadow-sm">
-              <span className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-              </span>
-              <div>
-                <span className="text-[10px] font-heading font-semibold text-purple-800/70 uppercase tracking-wider">Pending T&amp;C Finalization</span>
-                <p className="text-xs font-body text-purple-700/70 mt-0.5">
-                  <strong className="font-heading text-purple-800">{stats.all.pendingTCs}</strong> OneDoc{stats.all.pendingTCs !== 1 ? 's' : ''} awaiting finalization
-                </p>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
