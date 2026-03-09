@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "drive_id": "763e4209-a95e-4b9f-973e-163b6c20814c",
+  "name": "onedoc-app",
+  "description": "OneDoc commercial documentation web app for Pearson Packaging Systems — sidebar redesign",
+  "tags": [
+    "onedoc",
+    "pearson",
+    "packaging",
+    "dashboard",
+    "react",
+    "sidebar",
+    "redesign"
+  ],
+  "created_at": "2026-03-06T04:36:38.213986+00:00",
+  "updated_at": "2026-03-06T04:36:38.213986+00:00",
+  "parent_project": null,
+  "sessions": [
+    {
+      "session_id": "4bb4f170-4b08-4e36-9271-6c9f69ae5c6e/subagents/onedoc_ux_redesign_implementation_20260306_041129",
+      "timestamp": "2026-03-06T04:36:38.213986+00:00",
+      "summary": "Redesigned OneDoc from a horizontal tab layout to a professional sidebar-based dashboard. New index.html (3,524 lines) has: collapsible left sidebar (Blurple #343551) with grouped navigation (OVERVIEW/DATA/DOCUMENTS/EQUIPMENT/COMMERCIAL/HISTORY), white top bar with page title + quote folder input + Export dropdown, full-viewport grid layout with independently scrolling main area. All original functionality preserved: PDF export, Excel export, all 8 tab components, machine configs, RACI modal, Case Table Checker, 2-click Clear Page/All, CPP collapsible grids with anchor nav strip. SVG icons throughout. Pearson brand standards applied."
+    }
+  ]
+}
