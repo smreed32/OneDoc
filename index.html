@@ -774,24 +774,11 @@ window.doExportPDF = async function(state, attachments) {
         }
       }
 
-      // Project summary
-      if (rfq.projectSummary) {
-        coverY += 8;
-        doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(C_BLURPLE[0],C_BLURPLE[1],C_BLURPLE[2]);
-        doc.text('Project Summary:', mx, coverY);
-        coverY += 12;
-        doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(C_GRAY[0],C_GRAY[1],C_GRAY[2]);
-        var summaryLines = doc.splitTextToSize(sv(rfq.projectSummary), cw);
-        for (var sl2 = 0; sl2 < summaryLines.length; sl2++) {
-          doc.text(summaryLines[sl2], mx, coverY); coverY += 12;
-        }
-      }
-
-      // Executive Summary (AI-generated)
+      // Project/Executive Summary (AI-generated)
       if (state.executiveSummary) {
         coverY += 8;
         doc.setFont('helvetica','bold'); doc.setFontSize(8.5); doc.setTextColor(C_ORANGE[0],C_ORANGE[1],C_ORANGE[2]);
-        doc.text('Executive Summary:', mx, coverY);
+        doc.text('Project/Executive Summary:', mx, coverY);
         coverY += 12;
         doc.setFont('helvetica','normal'); doc.setFontSize(8.5); doc.setTextColor(C_GRAY[0],C_GRAY[1],C_GRAY[2]);
         var execLines = doc.splitTextToSize(sv(state.executiveSummary), cw);
@@ -2796,8 +2783,7 @@ async function exportExcel(state, attachments) {
     ['Plant Location', state.rfq.plantLocation],
     ['Partner Adjust %', state.rfq.partnerAdjustPercent != null && state.rfq.partnerAdjustPercent !== '' ? Number(state.rfq.partnerAdjustPercent) / 100 : ''],
     ['Country', state.rfq.country],
-    ['Project Summary', state.rfq.projectSummary],
-    ['Executive Summary', state.executiveSummary || ''],
+    ['Project/Executive Summary', state.executiveSummary || ''],
     ['Integration Level', state.integrationLevel],
     ['Spec Package', state.rfq.specPackage ? 'Yes' : 'No'],
     ['Specs Finalized', state.rfq.specsFinalized ? 'Yes' : 'No'],
@@ -4221,7 +4207,7 @@ function ExecutiveSummaryCard({ state, setState }) {
         React.createElement('h3', {
           className: 'font-heading font-bold text-white',
           style: { fontSize: '13px' }
-        }, 'Executive Summary')
+        }, 'Project/Executive Summary')
       ),
       React.createElement('div', { className: 'flex items-center gap-2' },
         // Settings gear icon
@@ -4600,16 +4586,6 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
           </div>
         </Card>
       </div>
-
-      <Card title="Project Summary">
-        <textarea
-          value={rfq.projectSummary}
-          onChange={e => updateRfq('projectSummary', e.target.value)}
-          rows={4}
-          placeholder="Describe the project scope, goals, and special requirements..."
-          className="w-full px-3 py-2 border border-p-light rounded-btn text-sm resize-y"
-        />
-      </Card>
 
       <ExecutiveSummaryCard state={state} setState={setState} />
 
