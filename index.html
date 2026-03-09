@@ -6557,7 +6557,10 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
   var thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   var myId = userProfile ? userProfile.id : null;
 
-  var stats = { all: { total: 0, recent: 0, machines: 0, booked: 0 }, my: { total: 0, recent: 0, machines: 0, booked: 0 } };
+  var stats = { all: { total: 0, recent: 0, machines: 0, booked: 0, pendingSpecs: 0 }, my: { total: 0, recent: 0, machines: 0, booked: 0, pendingSpecs: 0 } };
+
+  // Pending spec review list — OneDocs with customer specs but specs not finalized
+  var pendingSpecReviewList = [];
 
   // Category score accumulators: { sum, count } for my and all
   var catKeys = ['identity','machConfig','cppData','facility','booking','finalization'];
@@ -6595,6 +6598,15 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
           catAccum.all[k].sum += cats[k]; catAccum.all[k].count++;
           if (isMine) { catAccum.my[k].sum += cats[k]; catAccum.my[k].count++; }
         });
+      }
+
+      // Pending spec review: customer specs provided but not finalized
+      var hasCustomerSpecs = fd.specifications && fd.specifications.specType === 'customer';
+      var specsFinalized = fd.rfq && fd.rfq.specsFinalized;
+      if (hasCustomerSpecs && !specsFinalized) {
+        stats.all.pendingSpecs++;
+        if (isMine) stats.my.pendingSpecs++;
+        pendingSpecReviewList.push({ proj: p, isMine: isMine });
       }
 
       // Needs attention: mine only, low completion or stale
@@ -6812,6 +6824,45 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
       )}
 
 
+
+      {/* Pending Spec Review Alert */}
+      {!loadingDetails && stats.all.pendingSpecs > 0 && (
+        <div className="mb-6 bg-amber-50 border border-amber-200 rounded-card p-4 shadow-sm">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </span>
+            <div>
+              <span className="text-[10px] font-heading font-semibold text-amber-800/70 uppercase tracking-wider">Pending Spec Review</span>
+              <p className="text-xs font-body text-amber-700/70 mt-0.5">
+                <strong className="font-heading text-amber-800">{stats.my.pendingSpecs > 0 ? stats.my.pendingSpecs + ' of mine' : ''}{stats.my.pendingSpecs > 0 && stats.all.pendingSpecs > stats.my.pendingSpecs ? ' · ' : ''}{stats.all.pendingSpecs > stats.my.pendingSpecs ? (stats.all.pendingSpecs - stats.my.pendingSpecs) + ' others' : stats.my.pendingSpecs === 0 ? stats.all.pendingSpecs + ' total' : ''}</strong>
+                {' — '}Customer specs received but engineering review not finalized
+              </p>
+            </div>
+          </div>
+          <div className="space-y-1.5 mt-3">
+            {pendingSpecReviewList.slice(0, 8).map(function(item) {
+              return (
+                <div
+                  key={item.proj.id}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/60 hover:bg-white cursor-pointer transition-colors border border-amber-100"
+                  onClick={function() { onLoadProject(item.proj); }}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-xs font-heading font-semibold text-p-blurple truncate block">{item.proj.projectName || 'Unnamed'}</span>
+                  </div>
+                  {item.isMine && <span className="text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-p-orange/10 text-p-orange">MINE</span>}
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bebebe" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </div>
+              );
+            })}
+            {pendingSpecReviewList.length > 8 && (
+              <p className="text-[10px] font-body text-amber-600/60 text-center mt-1">+ {pendingSpecReviewList.length - 8} more</p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Mobile search (TopBar search is hidden on small screens) + Sort */}
       {!loadingProjects && projects.length > 0 && (
