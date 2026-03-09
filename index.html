@@ -3107,15 +3107,15 @@ function Sidebar({ state, setState, collapsed, setCollapsed, mobileOpen, setMobi
     {
       label: 'DOCUMENTS',
       items: [
-        rfq.specsFinalized && { id: 'specs', label: 'Specifications', icon: 'specs' },
-        rfq.tandCsSigned && { id: 'tandc', label: 'Terms & Conditions', icon: 'tandc' },
+        { id: 'specs', label: 'Specifications', icon: 'specs' },
+        { id: 'tandc', label: 'Terms & Conditions', icon: 'tandc' },
       ].filter(Boolean)
     },
     machineTabs.length > 0 && {
       label: 'EQUIPMENT',
       items: machineTabs
     },
-    rfq.booked && {
+    {
       label: 'COMMERCIAL',
       items: [
         { id: 'booking', label: 'Booking Details', icon: 'booking' },
@@ -4475,24 +4475,24 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
             <Toggle checked={rfq.tandCsSigned} onChange={v => updateRfq('tandCsSigned',v)} label="T&Cs Signed?" />
           </div>
           <div className="mt-4 p-3 bg-p-alt rounded-btn text-xs border border-gray-100">
-            <p className="font-heading font-semibold mb-1.5 text-p-blurple">Navigation visibility</p>
+            <p className="font-heading font-semibold mb-1.5 text-p-blurple">Status summary</p>
             <p className="flex items-center gap-1.5 mb-1">
               {rfq.specsFinalized
                 ? <span className="w-4 h-4 rounded-full bg-p-sage/30 text-p-forest flex items-center justify-center font-bold text-[10px]">✓</span>
                 : <span className="w-4 h-4 rounded-full bg-p-red/10 text-p-red flex items-center justify-center font-bold text-[10px]">✗</span>}
-              Specifications: {rfq.specsFinalized ? <span className="text-p-forest font-medium">Visible</span> : <span className="text-p-red">Hidden</span>}
+              Specifications: {rfq.specsFinalized ? <span className="text-p-forest font-medium">Finalized</span> : <span className="text-p-red">Pending</span>}
             </p>
             <p className="flex items-center gap-1.5 mb-1">
               {rfq.booked
                 ? <span className="w-4 h-4 rounded-full bg-p-sage/30 text-p-forest flex items-center justify-center font-bold text-[10px]">✓</span>
                 : <span className="w-4 h-4 rounded-full bg-p-red/10 text-p-red flex items-center justify-center font-bold text-[10px]">✗</span>}
-              Booking: {rfq.booked ? <span className="text-p-forest font-medium">Visible</span> : <span className="text-p-red">Hidden</span>}
+              Booking: {rfq.booked ? <span className="text-p-forest font-medium">Booked</span> : <span className="text-p-red">Not booked</span>}
             </p>
             <p className="flex items-center gap-1.5">
               {rfq.tandCsSigned
                 ? <span className="w-4 h-4 rounded-full bg-p-sage/30 text-p-forest flex items-center justify-center font-bold text-[10px]">✓</span>
                 : <span className="w-4 h-4 rounded-full bg-p-red/10 text-p-red flex items-center justify-center font-bold text-[10px]">✗</span>}
-              T&Cs: {rfq.tandCsSigned ? <span className="text-p-forest font-medium">Visible</span> : <span className="text-p-red">Hidden</span>}
+              T&Cs: {rfq.tandCsSigned ? <span className="text-p-forest font-medium">Signed</span> : <span className="text-p-red">Unsigned</span>}
             </p>
           </div>
         </Card>
@@ -7839,9 +7839,9 @@ function MobileMoreSheet({ open, onClose, activeTab, onNavigate, rfq, onSignOut 
       label: 'NAVIGATION',
       items: [
         { id: 'facility', label: 'Facility Info', icon: Icons.facility },
-        rfq.specsFinalized && { id: 'specs', label: 'Specifications', icon: Icons.specs },
-        rfq.booked && { id: 'booking', label: 'Booking Details', icon: Icons.booking },
-        rfq.tandCsSigned && { id: 'tandc', label: 'Terms & Conditions', icon: Icons.tandc },
+        { id: 'specs', label: 'Specifications', icon: Icons.specs },
+        { id: 'booking', label: 'Booking Details', icon: Icons.booking },
+        { id: 'tandc', label: 'Terms & Conditions', icon: Icons.tandc },
       ].filter(Boolean)
     },
     machineItems.length > 0 && {
