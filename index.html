@@ -3591,6 +3591,48 @@ async function setGeminiKey(key) {
   }
 }
 
+// Helper: get/set Quote Folder Base URL from Supabase (org-wide)
+var __quoteFolderBaseUrl = null;
+var __quoteFolderLoaded = false;
+
+async function loadQuoteFolderBaseUrl() {
+  if (__quoteFolderLoaded) return __quoteFolderBaseUrl || '';
+  try {
+    var { data, error } = await supabaseClient
+      .from('app_settings')
+      .select('quote_folder_base_url')
+      .eq('id', 'default')
+      .single();
+    if (!error && data && data.quote_folder_base_url) {
+      __quoteFolderBaseUrl = data.quote_folder_base_url;
+    } else {
+      __quoteFolderBaseUrl = '';
+    }
+  } catch(e) {
+    __quoteFolderBaseUrl = '';
+  }
+  __quoteFolderLoaded = true;
+  return __quoteFolderBaseUrl || '';
+}
+
+function getQuoteFolderBaseUrl() {
+  return __quoteFolderBaseUrl || '';
+}
+
+async function setQuoteFolderBaseUrl(url) {
+  __quoteFolderBaseUrl = url;
+  __quoteFolderLoaded = true;
+  try {
+    var user = (await supabaseClient.auth.getUser()).data.user;
+    await supabaseClient
+      .from('app_settings')
+      .update({ quote_folder_base_url: url, updated_by: user ? user.id : null })
+      .eq('id', 'default');
+  } catch(e) {
+    console.error('Failed to save quote folder URL to database:', e);
+  }
+}
+
 // Build the AI prompt from project data
 function buildAIPrompt(state) {
   var rfq = state.rfq || {};
@@ -4150,7 +4192,7 @@ function ExecutiveSummaryCard({ state, setState }) {
 // TAB 1: REQUEST FOR QUOTE
 // ============================================================================
 
-function RFQTab({ state, setState }) {
+function RFQTab({ state, setState, quoteFolderBaseUrl }) {
   const { rfq } = state;
   const updateRfq = (key, val) => setState(p => ({...p, rfq:{...p.rfq, [key]:val}}));
 
@@ -4210,6 +4252,31 @@ function RFQTab({ state, setState }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <FormField label="Opportunity Number" required>
               <TextInput value={rfq.opportunityNumber} onChange={v => updateRfq('opportunityNumber', v.replace(/[^0-9]/g, ''))} required placeholder="Enter opportunity number" />
+              {quoteFolderBaseUrl && (
+                <a
+                  href={(() => {
+                    var base = quoteFolderBaseUrl;
+                    var opp = (rfq.opportunityNumber || '').trim();
+                    if (!opp) return base;
+                    // SharePoint: use ?id= parameter to navigate to subfolder
+                    // Extract the path portion before /Forms/ to build the folder path
+                    var formsIdx = base.indexOf('/Forms/');
+                    if (formsIdx >= 0) {
+                      var folderPath = base.substring(base.indexOf('/sites/'), formsIdx);
+                      return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'id=' + encodeURIComponent(folderPath + '/' + opp);
+                    }
+                    // Fallback: just append opp number
+                    return base.replace(/\/?$/, '/') + opp;
+                  })()}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-1 text-[11px] font-heading font-semibold text-p-orange hover:text-p-orange/80 hover:underline transition-colors"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                  {rfq.opportunityNumber ? 'Open Quote Folder ' + rfq.opportunityNumber : 'Open Quotes Directory'}
+                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              )}
             </FormField>
             <FormField label="Company Name" required>
               <TextInput value={rfq.customerName} onChange={v => updateRfq('customerName',v)} required placeholder="Enter company name" />
@@ -5770,7 +5837,7 @@ async function __checkAdminPw(pw) {
   return hex === __ADMIN_HASH;
 }
 
-function MachineAdminTab({ state, setState }) {
+function MachineAdminTab({ state, setState, quoteFolderBaseUrl, setQuoteFolderBaseUrlState }) {
   const [unlocked, setUnlocked] = React.useState(__adminUnlocked);
   const [pwInput, setPwInput] = React.useState('');
   const [pwError, setPwError] = React.useState(false);
@@ -5781,6 +5848,11 @@ function MachineAdminTab({ state, setState }) {
   const [showForm, setShowForm] = React.useState(false);
   const [toast, setToast] = React.useState(null);
   const [confirmDelete, setConfirmDelete] = React.useState(null);
+
+  // Quote Folder URL local editing state
+  const [quoteFolderInput, setQuoteFolderInput] = React.useState(quoteFolderBaseUrl || '');
+  const [quoteFolderSaved, setQuoteFolderSaved] = React.useState(false);
+  React.useEffect(function() { setQuoteFolderInput(quoteFolderBaseUrl || ''); }, [quoteFolderBaseUrl]);
 
   const emptyForm = { model:'', category:'', customCategory:'', templateType:'', limits:{} };
   const [form, setForm] = React.useState(emptyForm);
@@ -6006,6 +6078,41 @@ function MachineAdminTab({ state, setState }) {
               here, it becomes available in the machine dropdowns on the RFQ tab and the Case Table Checker
               will validate case dimensions against the limits you define.
             </p>
+          </div>
+        </div>
+      </Card>
+
+      {/* App Settings */}
+      <Card title="App Settings">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-heading font-semibold text-p-blurple mb-1.5">Quote Folder Base URL</label>
+            <p className="text-[11px] font-body text-p-gray/50 mb-2">SharePoint or shared drive URL where quote folders are stored. Each folder should be named by Opportunity Number. All users will see a "Open Quote Folder" link on the RFQ tab.</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={quoteFolderInput}
+                onChange={e => { setQuoteFolderInput(e.target.value); setQuoteFolderSaved(false); }}
+                placeholder="https://yourcompany.sharepoint.com/sites/quotes/Quotes/Forms/AllItems.aspx"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-btn text-sm font-body text-p-gray focus:border-p-orange focus:ring-1 focus:ring-p-orange/20 transition-colors"
+                style={{outline:'none'}}
+              />
+              <button
+                onClick={() => {
+                  setQuoteFolderBaseUrl(quoteFolderInput.trim());
+                  setQuoteFolderBaseUrlState(quoteFolderInput.trim());
+                  setQuoteFolderSaved(true);
+                  setToast({ type: 'success', text: 'Quote folder URL saved.' });
+                  setTimeout(() => setQuoteFolderSaved(false), 3000);
+                }}
+                className={'px-4 py-2 rounded-btn text-sm font-heading font-semibold transition-colors ' + (quoteFolderSaved ? 'bg-p-forest text-white' : 'bg-p-blurple text-white hover:bg-p-blurple/90')}
+              >{quoteFolderSaved ? '✓ Saved' : 'Save'}</button>
+            </div>
+            {quoteFolderInput && (
+              <p className="text-[10px] font-body text-p-gray/40 mt-1.5 break-all">
+                Preview: {quoteFolderInput}{quoteFolderInput.indexOf('/Forms/') >= 0 ? '?id=.../123456' : '/123456'}
+              </p>
+            )}
           </div>
         </div>
       </Card>
@@ -7635,6 +7742,12 @@ function App() {
   const [attachmentsPanelOpen, setAttachmentsPanelOpen] = React.useState(false);
   const [attachmentCount, setAttachmentCount] = React.useState(0);
 
+  // Quote Folder base URL (loaded from app_settings)
+  const [quoteFolderBaseUrl, setQuoteFolderBaseUrlState] = React.useState('');
+  React.useEffect(function() {
+    loadQuoteFolderBaseUrl().then(function(url) { setQuoteFolderBaseUrlState(url); });
+  }, []);
+
   // Load attachment count when project changes
   React.useEffect(function() {
     if (currentProjectId) {
@@ -7906,14 +8019,14 @@ function App() {
     const { activeTab } = state;
     switch (activeTab) {
       case 'dashboard': return null; // Rendered separately in the layout
-      case 'rfq': return <RFQTab state={state} setState={setState} />;
+      case 'rfq': return <RFQTab state={state} setState={setState} quoteFolderBaseUrl={quoteFolderBaseUrl} />;
       case 'cpp': return <CPPTab state={state} setState={setState} />;
       case 'facility': return <FacilityTab state={state} setState={setState} />;
       case 'specs': return <SpecsTab state={state} setState={setState} />;
       case 'booking': return <BookingTab state={state} setState={setState} />;
       case 'tandc': return <TandCTab state={state} setState={setState} />;
       case 'revisions': return <RevisionsTab state={state} setState={setState} />;
-      case 'machine-admin': return <MachineAdminTab state={state} setState={setState} />;
+      case 'machine-admin': return <MachineAdminTab state={state} setState={setState} quoteFolderBaseUrl={quoteFolderBaseUrl} setQuoteFolderBaseUrlState={setQuoteFolderBaseUrlState} />;
       default:
         if (activeTab.startsWith('machine-')) {
           const slotNum = parseInt(activeTab.split('-')[1]);
