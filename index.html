@@ -801,20 +801,54 @@ window.doExportPDF = async function(state, attachments) {
         }
       }
 
-      // Quote Folder button on cover
-      var qfCoverY = coverY + 14;
-      var qfFullLabel = 'Open Quote Folder  >';
-      doc.setFont('helvetica','bold'); doc.setFontSize(8.5);
-      var qfTextW = doc.getTextWidth(qfFullLabel);
-      var qfPadX = 12; var qfBtnH = 20; var qfBtnR = 4;
-      var qfBtnW = qfTextW + qfPadX * 2;
-      doc.setFillColor(C_BLURPLE[0],C_BLURPLE[1],C_BLURPLE[2]);
-      doc.roundedRect(mx, qfCoverY, qfBtnW, qfBtnH, qfBtnR, qfBtnR, 'F');
-      doc.setTextColor(255,255,255);
-      var qfTextX = mx + (qfBtnW - qfTextW) / 2;
-      var qfTextY = qfCoverY + qfBtnH / 2 + 3;
-      doc.textWithLink(qfFullLabel, qfTextX, qfTextY, {url: QUOTE_FOLDER_URL});
-      doc.link(mx, qfCoverY, qfBtnW, qfBtnH, {url: QUOTE_FOLDER_URL});
+      // DC Links on cover (Quotes DC + Projects DC)
+      var dcCoverY = coverY + 14;
+      var dcQuotesUrl = getQuoteFolderBaseUrl();
+      var dcProjectsUrl = getProjectFolderBaseUrl();
+      var oppNum = (rfq.opportunityNumber || '').trim();
+      var compName = (rfq.customerName || '').trim();
+      var dcBtnX = mx;
+      var dcBtnH = 18; var dcBtnR = 3; var dcPadX = 10; var dcGap = 8;
+      doc.setFont('helvetica','bold'); doc.setFontSize(8);
+
+      if (dcQuotesUrl) {
+        var qLabel = 'Quotes DC' + (oppNum ? '  >' : '');
+        var qUrl = dcQuotesUrl;
+        if (oppNum) {
+          var qFormsIdx = dcQuotesUrl.indexOf('/Forms/');
+          if (qFormsIdx >= 0) {
+            var qFolderPath = dcQuotesUrl.substring(dcQuotesUrl.indexOf('/sites/'), qFormsIdx);
+            qUrl = dcQuotesUrl + '?id=' + encodeURIComponent(qFolderPath + '/' + oppNum);
+          }
+        }
+        var qLabelW = doc.getTextWidth(qLabel);
+        var qBtnW = qLabelW + dcPadX * 2;
+        doc.setFillColor(C_ORANGE[0],C_ORANGE[1],C_ORANGE[2]);
+        doc.roundedRect(dcBtnX, dcCoverY, qBtnW, dcBtnH, dcBtnR, dcBtnR, 'F');
+        doc.setTextColor(255,255,255);
+        doc.textWithLink(qLabel, dcBtnX + dcPadX, dcCoverY + dcBtnH / 2 + 3, {url: qUrl});
+        doc.link(dcBtnX, dcCoverY, qBtnW, dcBtnH, {url: qUrl});
+        dcBtnX += qBtnW + dcGap;
+      }
+
+      if (dcProjectsUrl && oppNum) {
+        var pLabel = 'Projects DC  >';
+        var pSiteMatch = dcProjectsUrl.match(/^(https?:\/\/[^\/]+\/sites\/[^\/]+)/);
+        var pUrl = dcProjectsUrl;
+        if (pSiteMatch) {
+          var pSiteUrl = pSiteMatch[1];
+          var pFormsIdx = dcProjectsUrl.indexOf('/Forms/');
+          var pLibPath = pFormsIdx >= 0 ? dcProjectsUrl.substring(dcProjectsUrl.indexOf('/sites/'), pFormsIdx) : '';
+          pUrl = pSiteUrl + '/_layouts/15/search.aspx?q=' + encodeURIComponent('P-' + oppNum) + (pLibPath ? '&scope=' + encodeURIComponent(pLibPath) : '');
+        }
+        var pLabelW = doc.getTextWidth(pLabel);
+        var pBtnW = pLabelW + dcPadX * 2;
+        doc.setFillColor(C_BLURPLE[0],C_BLURPLE[1],C_BLURPLE[2]);
+        doc.roundedRect(dcBtnX, dcCoverY, pBtnW, dcBtnH, dcBtnR, dcBtnR, 'F');
+        doc.setTextColor(255,255,255);
+        doc.textWithLink(pLabel, dcBtnX + dcPadX, dcCoverY + dcBtnH / 2 + 3, {url: pUrl});
+        doc.link(dcBtnX, dcCoverY, pBtnW, dcBtnH, {url: pUrl});
+      }
 
       // Footer on cover
       doc.setFont('helvetica','normal'); doc.setFontSize(8); doc.setTextColor(C_LTGRAY[0],C_LTGRAY[1],C_LTGRAY[2]);
@@ -825,8 +859,8 @@ window.doExportPDF = async function(state, attachments) {
       doc.text('Real Partners. That Simple.', pw - mx, ph - 24, {align:'right'});
 
       // =========== RFQ SUMMARY (flows on cover page) ===========
-      // Start RFQ Summary below cover content + quote folder button, respecting footer
-      y = qfCoverY + qfBtnH + 10;
+      // Start RFQ Summary below cover content + DC buttons, respecting footer
+      y = dcCoverY + dcBtnH + 10;
       y = secTitle('RFQ Summary', y);
       y = drawKV([['Opportunity #',rfq.opportunityNumber],['Company',rfq.customerName],['RSM',rfq.rsmName],['Contact',rfq.quoteContact],['Quote Type',rfq.quoteType],['Email',rfq.contactEmail],['Revision',rfq.rfqRevisionNumber],['Phone',rfq.contactPhone],['Partner',rfq.partnerName],['Plant Location',rfq.plantLocation],['Partner Adjust %',rfq.partnerAdjustPercent],['Country',rfq.country],['Integration Level',state.integrationLevel]], y);
 
@@ -981,7 +1015,25 @@ window.doExportPDF = async function(state, attachments) {
       }
 
       // =========== HEADERS & FOOTERS (all pages) ===========
-      var qfLink = QUOTE_FOLDER_URL;
+      var hdrQuotesUrl = getQuoteFolderBaseUrl();
+      var hdrProjectsUrl = getProjectFolderBaseUrl();
+      var hdrOpp = (rfq.opportunityNumber || '').trim();
+      // Build resolved header URLs once
+      var hdrQUrl = hdrQuotesUrl;
+      if (hdrQuotesUrl && hdrOpp) {
+        var hqfi = hdrQuotesUrl.indexOf('/Forms/');
+        if (hqfi >= 0) { hdrQUrl = hdrQuotesUrl + '?id=' + encodeURIComponent(hdrQuotesUrl.substring(hdrQuotesUrl.indexOf('/sites/'), hqfi) + '/' + hdrOpp); }
+      }
+      var hdrPUrl = hdrProjectsUrl;
+      if (hdrProjectsUrl && hdrOpp) {
+        var hpSite = (hdrProjectsUrl.match(/^(https?:\/\/[^\/]+\/sites\/[^\/]+)/) || [])[1];
+        if (hpSite) {
+          var hpfi = hdrProjectsUrl.indexOf('/Forms/');
+          var hpLib = hpfi >= 0 ? hdrProjectsUrl.substring(hdrProjectsUrl.indexOf('/sites/'), hpfi) : '';
+          hdrPUrl = hpSite + '/_layouts/15/search.aspx?q=' + encodeURIComponent('P-' + hdrOpp) + (hpLib ? '&scope=' + encodeURIComponent(hpLib) : '');
+        }
+      }
+
       var pages = doc.internal.getNumberOfPages();
       for (var p = 1; p <= pages; p++) {
         doc.setPage(p);
@@ -997,14 +1049,28 @@ window.doExportPDF = async function(state, attachments) {
         doc.text(sv(rfq.customerName), mx, 34);
         doc.text(dateStr, pw - mx, 34, {align:'right'});
 
-        // Quote Folder link in header area
-        doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setTextColor(C_ORANGE[0],C_ORANGE[1],C_ORANGE[2]);
-        var qfLabel = 'Open Quote Folder';
-        var qfW = doc.getTextWidth(qfLabel);
-        var qfX = pw - mx - qfW;
-        doc.textWithLink(qfLabel, qfX, 22, {url: qfLink});
-        doc.setDrawColor(C_ORANGE[0],C_ORANGE[1],C_ORANGE[2]); doc.setLineWidth(0.4);
-        doc.line(qfX, 23.5, qfX + qfW, 23.5);
+        // DC links in header area (right-aligned)
+        doc.setFont('helvetica','bold'); doc.setFontSize(7.5);
+        var hdrLinkX = pw - mx;
+        if (hdrProjectsUrl && hdrOpp) {
+          var hpLabel = 'Projects DC';
+          var hpW = doc.getTextWidth(hpLabel);
+          hdrLinkX -= hpW;
+          doc.setTextColor(C_BLURPLE[0],C_BLURPLE[1],C_BLURPLE[2]);
+          doc.textWithLink(hpLabel, hdrLinkX, 22, {url: hdrPUrl});
+          doc.setDrawColor(C_BLURPLE[0],C_BLURPLE[1],C_BLURPLE[2]); doc.setLineWidth(0.4);
+          doc.line(hdrLinkX, 23.5, hdrLinkX + hpW, 23.5);
+          hdrLinkX -= 12; // gap
+        }
+        if (hdrQuotesUrl) {
+          var hqLabel = 'Quotes DC';
+          var hqW = doc.getTextWidth(hqLabel);
+          hdrLinkX -= hqW;
+          doc.setTextColor(C_ORANGE[0],C_ORANGE[1],C_ORANGE[2]);
+          doc.textWithLink(hqLabel, hdrLinkX, 22, {url: hdrQUrl});
+          doc.setDrawColor(C_ORANGE[0],C_ORANGE[1],C_ORANGE[2]); doc.setLineWidth(0.4);
+          doc.line(hdrLinkX, 23.5, hdrLinkX + hqW, 23.5);
+        }
 
         // Thin separator
         doc.setDrawColor(C_LTGRAY[0],C_LTGRAY[1],C_LTGRAY[2]); doc.setLineWidth(0.5);
@@ -1961,7 +2027,7 @@ function AuthGate({ children }) {
 // ============================================================================
 // CONSTANTS
 // ============================================================================
-const QUOTE_FOLDER_URL = 'https://pearsonpackaging.sharepoint.com/sites/quotes/Quotes/Forms/AllItems.aspx';
+// DC URLs are now loaded dynamically from app_settings via getQuoteFolderBaseUrl() / getProjectFolderBaseUrl()
 
 // ============================================================================
 // SVG ICONS (Lucide/Feather-style)
@@ -2584,7 +2650,29 @@ async function exportExcel(state, attachments) {
   coverAoa.push(['','Plant Location:', state.rfq.plantLocation || '','','']);
   coverAoa.push(['','Country:', state.rfq.country || '','','']);
   coverAoa.push(['','Export Date:', dateStr + ' at ' + timeStr,'','']);
-  coverAoa.push(['','Quote Folder:', 'Open Quote Folder','','']);
+  // DC Links row(s)
+  var xlQuotesUrl = getQuoteFolderBaseUrl();
+  var xlProjectsUrl = getProjectFolderBaseUrl();
+  var xlOpp = (state.rfq.opportunityNumber || '').trim();
+  var xlComp = (state.rfq.customerName || '').trim();
+  // Resolve Quotes DC URL
+  var xlQUrl = xlQuotesUrl;
+  if (xlQuotesUrl && xlOpp) {
+    var xlqfi = xlQuotesUrl.indexOf('/Forms/');
+    if (xlqfi >= 0) { xlQUrl = xlQuotesUrl + '?id=' + encodeURIComponent(xlQuotesUrl.substring(xlQuotesUrl.indexOf('/sites/'), xlqfi) + '/' + xlOpp); }
+  }
+  // Resolve Projects DC URL
+  var xlPUrl = xlProjectsUrl;
+  if (xlProjectsUrl && xlOpp) {
+    var xlpSite = (xlProjectsUrl.match(/^(https?:\/\/[^\/]+\/sites\/[^\/]+)/) || [])[1];
+    if (xlpSite) {
+      var xlpfi = xlProjectsUrl.indexOf('/Forms/');
+      var xlpLib = xlpfi >= 0 ? xlProjectsUrl.substring(xlProjectsUrl.indexOf('/sites/'), xlpfi) : '';
+      xlPUrl = xlpSite + '/_layouts/15/search.aspx?q=' + encodeURIComponent('P-' + xlOpp) + (xlpLib ? '&scope=' + encodeURIComponent(xlpLib) : '');
+    }
+  }
+  if (xlQuotesUrl) coverAoa.push(['','Quotes DC:', 'Open Quotes DC','','']);
+  if (xlProjectsUrl && xlOpp) coverAoa.push(['','Projects DC:', 'Open Projects DC','','']);
   coverAoa.push(['','','','','']);
   coverAoa.push(['','SHEET INDEX','','','']);
   const sheetNames = ['RFQ Summary','Case Data','Product Data','Packing Config','Pallet Info','Pallet Patterns','Facility Info','Booking Details','Machine Configs','Specifications','Terms & Conditions'];
@@ -2610,35 +2698,56 @@ async function exportExcel(state, attachments) {
     fill: {fgColor:{rgb:ORANGE}},
     border: {bottom:{style:'medium', color:{rgb:ORANGE}}}
   };
-  for (let ri = 4; ri <= 12; ri++) {
+  // Style data rows (rows 4 through 11 = opp# through export date)
+  for (let ri = 4; ri <= 11; ri++) {
     const lAddr = XLSX.utils.encode_cell({r:ri, c:1});
     const vAddr = XLSX.utils.encode_cell({r:ri, c:2});
     if (wsCover[lAddr]) wsCover[lAddr].s = sCoverField;
     if (wsCover[vAddr]) wsCover[vAddr].s = sCoverValue;
   }
-  // Quote Folder hyperlink on cover
-  const qfCoverAddr = XLSX.utils.encode_cell({r:12, c:2});
-  if (wsCover[qfCoverAddr]) {
-    wsCover[qfCoverAddr].s = {font:{name:'Roboto', sz:11, color:{rgb:ORANGE}, underline:true}, alignment:{horizontal:'left', vertical:'center'}};
-    wsCover[qfCoverAddr].l = {Target: QUOTE_FOLDER_URL, Tooltip: 'Open Quote Folder'};
+  // DC hyperlinks on cover (rows 12+)
+  var xlDCRow = 12;
+  if (xlQuotesUrl) {
+    var qlAddr = XLSX.utils.encode_cell({r:xlDCRow, c:1});
+    var qvAddr = XLSX.utils.encode_cell({r:xlDCRow, c:2});
+    if (wsCover[qlAddr]) wsCover[qlAddr].s = sCoverField;
+    if (wsCover[qvAddr]) {
+      wsCover[qvAddr].s = {font:{name:'Roboto', sz:11, color:{rgb:ORANGE}, underline:true}, alignment:{horizontal:'left', vertical:'center'}};
+      wsCover[qvAddr].l = {Target: xlQUrl, Tooltip: 'Open Quotes DC'};
+    }
+    xlDCRow++;
   }
-  const siHdr = XLSX.utils.encode_cell({r:14, c:1});
+  if (xlProjectsUrl && xlOpp) {
+    var plAddr = XLSX.utils.encode_cell({r:xlDCRow, c:1});
+    var pvAddr = XLSX.utils.encode_cell({r:xlDCRow, c:2});
+    if (wsCover[plAddr]) wsCover[plAddr].s = sCoverField;
+    if (wsCover[pvAddr]) {
+      wsCover[pvAddr].s = {font:{name:'Roboto', sz:11, color:{rgb:'343551'}, underline:true}, alignment:{horizontal:'left', vertical:'center'}};
+      wsCover[pvAddr].l = {Target: xlPUrl, Tooltip: 'Open Projects DC'};
+    }
+    xlDCRow++;
+  }
+  // Find SHEET INDEX header row (blank row + header)
+  var siRowIdx = xlDCRow + 1; // blank row, then header
+  const siHdr = XLSX.utils.encode_cell({r:siRowIdx, c:1});
   if (wsCover[siHdr]) wsCover[siHdr].s = sLegendHeader;
-  for (let ri = 15; ri < 15 + sheetNames.length; ri++) {
+  var siFirstDataRow = siRowIdx + 1;
+  for (let ri = siFirstDataRow; ri < siFirstDataRow + sheetNames.length; ri++) {
+    var shIdx = ri - siFirstDataRow;
     const numAddr = XLSX.utils.encode_cell({r:ri, c:1});
     const nameAddr = XLSX.utils.encode_cell({r:ri, c:2});
     if (wsCover[numAddr]) wsCover[numAddr].s = {...sCoverField, font:{...sCoverField.font, sz:11}};
     if (wsCover[nameAddr]) wsCover[nameAddr].s = sSheetIndex;
     // Add internal hyperlink to jump to the corresponding worksheet
     if (wsCover[nameAddr]) {
-      wsCover[nameAddr].l = {Target: '#\'' + sheetNames[ri - 15] + '\'!A1', Tooltip: 'Go to ' + sheetNames[ri - 15]};
+      wsCover[nameAddr].l = {Target: '#\'' + sheetNames[shIdx] + '\'!A1', Tooltip: 'Go to ' + sheetNames[shIdx]};
     }
     if (wsCover[numAddr]) {
-      wsCover[numAddr].l = {Target: '#\'' + sheetNames[ri - 15] + '\'!A1', Tooltip: 'Go to ' + sheetNames[ri - 15]};
+      wsCover[numAddr].l = {Target: '#\'' + sheetNames[shIdx] + '\'!A1', Tooltip: 'Go to ' + sheetNames[shIdx]};
       wsCover[numAddr].s = {...sCoverField, font:{...sCoverField.font, sz:11, color:{rgb:TEAL}, underline:true}};
     }
   }
-  const legendRow = 15 + sheetNames.length + 1;
+  const legendRow = siFirstDataRow + sheetNames.length + 1;
   const lgHdr = XLSX.utils.encode_cell({r:legendRow, c:1});
   if (wsCover[lgHdr]) wsCover[lgHdr].s = sLegendHeader;
   for (let i = 1; i <= 4; i++) {
@@ -2833,20 +2942,34 @@ async function exportExcel(state, attachments) {
       font: {name:'Roboto', sz:10, color:{rgb:'E54102'}, underline:true},
       alignment: {horizontal:'left', vertical:'center'}
     };
+    // Resolve DC URLs for sheet footers
+    var sheetQUrl = xlQUrl;
+    var sheetPUrl = xlPUrl;
     for (let si = 0; si < wb.SheetNames.length; si++) {
       if (wb.SheetNames[si] === 'Cover') continue;
       const sheet = wb.Sheets[wb.SheetNames[si]];
       const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1');
-      const linkRow = range.e.r + 3;
-      const labelAddr = XLSX.utils.encode_cell({r:linkRow, c:0});
-      const linkAddr = XLSX.utils.encode_cell({r:linkRow, c:1});
-      sheet[labelAddr] = {v:'Quote Folder:', t:'s', s:qfLabelStyle};
-      sheet[linkAddr] = {v:'Open Quote Folder', t:'s', s:qfLinkStyle, l:{Target:QUOTE_FOLDER_URL, Tooltip:'Open Quote Folder'}};
-      range.e.r = linkRow;
+      var footRow = range.e.r + 3;
+      if (xlQuotesUrl) {
+        var fqlAddr = XLSX.utils.encode_cell({r:footRow, c:0});
+        var fqvAddr = XLSX.utils.encode_cell({r:footRow, c:1});
+        sheet[fqlAddr] = {v:'Quotes DC:', t:'s', s:qfLabelStyle};
+        sheet[fqvAddr] = {v:'Open Quotes DC', t:'s', s:{...qfLinkStyle, font:{...qfLinkStyle.font, color:{rgb:ORANGE}}}, l:{Target:sheetQUrl, Tooltip:'Open Quotes DC'}};
+        range.e.r = footRow;
+        footRow++;
+      }
+      if (xlProjectsUrl && xlOpp) {
+        var fplAddr = XLSX.utils.encode_cell({r:footRow, c:0});
+        var fpvAddr = XLSX.utils.encode_cell({r:footRow, c:1});
+        sheet[fplAddr] = {v:'Projects DC:', t:'s', s:qfLabelStyle};
+        sheet[fpvAddr] = {v:'Open Projects DC', t:'s', s:{...qfLinkStyle, font:{...qfLinkStyle.font, color:{rgb:BLURPLE}}}, l:{Target:sheetPUrl, Tooltip:'Open Projects DC'}};
+        range.e.r = footRow;
+        footRow++;
+      }
       sheet['!ref'] = XLSX.utils.encode_range(range);
       if (!sheet['!rows']) sheet['!rows'] = [];
-      while (sheet['!rows'].length <= linkRow) sheet['!rows'].push({});
-      sheet['!rows'][linkRow] = {hpt: 24};
+      while (sheet['!rows'].length <= range.e.r) sheet['!rows'].push({});
+      sheet['!rows'][range.e.r] = {hpt: 24};
     }
   }
 
@@ -3280,19 +3403,6 @@ function TopBar({ state, setState, mobileOpen, setMobileOpen, currentProjectId, 
         {/* Spacer */}
         <div className="flex-1 min-w-0" />
 
-        {/* Quote Folder button — hidden on dashboard */}
-        {activeTab !== 'dashboard' && <a
-          href={QUOTE_FOLDER_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="hidden md:flex items-center gap-1.5 bg-p-blurple text-white px-3 py-1.5 rounded-btn text-xs font-heading font-semibold hover:bg-p-blurple/90 transition-colors flex-shrink-0"
-          title="Open Quote Folder in SharePoint"
-        >
-          <Icons.folder />
-          <span>Quote Folder</span>
-          <Icons.externalLink />
-        </a>}
-
         {/* Export button — hidden on dashboard */}
         {activeTab !== 'dashboard' && <div className="relative flex-shrink-0">
           <button
@@ -3497,18 +3607,6 @@ function PageToolbar({ state, setState, onResetProject }) {
 
   return (
     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 mb-5 no-print">
-      {/* Mobile quote folder button */}
-      <a
-        href={QUOTE_FOLDER_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="md:hidden flex items-center justify-center gap-2 flex-1 p-2.5 bg-p-blurple text-white rounded-card font-heading font-semibold text-xs hover:bg-p-blurple/90 transition-colors"
-      >
-        <Icons.folder />
-        <span>Open Quote Folder</span>
-        <Icons.externalLink />
-      </a>
-
       {/* Spacer */}
       <div className="flex-1 hidden sm:block" />
 
