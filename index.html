@@ -4454,6 +4454,26 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
     });
   }
 
+  function moveMachine(fromIdx, direction) {
+    const toIdx = fromIdx + direction;
+    setState(p => {
+      const machines = [...p.rfq.machines];
+      if (toIdx < 0 || toIdx >= machines.length) return p;
+      // Swap the two machines
+      [machines[fromIdx], machines[toIdx]] = [machines[toIdx], machines[fromIdx]];
+      // Renumber slot numbers to match new order
+      const renumbered = machines.map((m, i) => ({ ...m, slotNumber: i + 1 }));
+      // Fix activeTab if user is viewing one of the swapped machines
+      let newActive = p.activeTab;
+      if (newActive === `machine-${fromIdx + 1}`) {
+        newActive = `machine-${toIdx + 1}`;
+      } else if (newActive === `machine-${toIdx + 1}`) {
+        newActive = `machine-${fromIdx + 1}`;
+      }
+      return {...p, rfq:{...p.rfq, machines: renumbered}, activeTab: newActive};
+    });
+  }
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -4592,7 +4612,26 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
       <Card title="Requested Equipment">
         <div className="space-y-2">
           {rfq.machines.map((slot, idx) => (
-            <div key={idx} className="flex items-center gap-3 py-1">
+            <div key={idx} className="flex items-center gap-2 py-1">
+              {/* Reorder buttons */}
+              <div className="flex flex-col gap-0.5 shrink-0">
+                <button
+                  onClick={() => moveMachine(idx, -1)}
+                  disabled={idx === 0}
+                  className={`w-5 h-5 flex items-center justify-center rounded text-[10px] transition-colors ${idx === 0 ? 'text-gray-300 cursor-not-allowed' : 'text-p-gray hover:text-p-blurple hover:bg-gray-100'}`}
+                  title="Move up"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+                </button>
+                <button
+                  onClick={() => moveMachine(idx, 1)}
+                  disabled={idx === rfq.machines.length - 1}
+                  className={`w-5 h-5 flex items-center justify-center rounded text-[10px] transition-colors ${idx === rfq.machines.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-p-gray hover:text-p-blurple hover:bg-gray-100'}`}
+                  title="Move down"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                </button>
+              </div>
               <span className="text-sm font-heading font-semibold shrink-0 text-p-blurple">#{slot.slotNumber}</span>
               <div className="flex-1">
                 <SelectInput
