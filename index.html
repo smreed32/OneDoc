@@ -4303,16 +4303,19 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
                       href={(() => {
                         var base = projectFolderBaseUrl;
                         var opp = (rfq.opportunityNumber || '').trim();
-                        var company = (rfq.customerName || '').trim();
                         if (!opp) return base;
-                        // Projects DC folder pattern: "Company Name P-OppNumber"
-                        var folderName = (company ? company + ' P-' : 'P-') + opp;
-                        var formsIdx = base.indexOf('/Forms/');
-                        if (formsIdx >= 0) {
-                          var folderPath = base.substring(base.indexOf('/sites/'), formsIdx);
-                          return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'id=' + encodeURIComponent(folderPath + '/' + folderName);
+                        // Use SharePoint search scoped to the Projects DC library
+                        // Extract the site URL (everything up to and including /sites/XXX)
+                        var siteMatch = base.match(/^(https?:\/\/[^\/]+\/sites\/[^\/]+)/);
+                        if (siteMatch) {
+                          var siteUrl = siteMatch[1];
+                          // Extract the library path (e.g., /sites/DC/Project)
+                          var formsIdx = base.indexOf('/Forms/');
+                          var libPath = formsIdx >= 0 ? base.substring(base.indexOf('/sites/'), formsIdx) : '';
+                          return siteUrl + '/_layouts/15/search.aspx?q=' + encodeURIComponent('P-' + opp) + (libPath ? '&scope=' + encodeURIComponent(libPath) : '');
                         }
-                        return base.replace(/\/?$/, '/') + encodeURIComponent(folderName);
+                        // Fallback: just open the base URL
+                        return base;
                       })()}
                       target="_blank"
                       rel="noopener noreferrer"
