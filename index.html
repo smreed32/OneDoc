@@ -3052,13 +3052,32 @@ function Sidebar({ state, setState, collapsed, setCollapsed, mobileOpen, setMobi
   const { activeTab, rfq } = state;
   const isDashboard = activeTab === 'dashboard' || activeTab === 'machine-admin' || activeTab === 'revisions';
 
-  const machineTabs = rfq.machines
-    .filter(m => m.selectedModel)
-    .map(m => ({
-      id: `machine-${m.slotNumber}`,
-      label: `#${m.slotNumber} - ${m.selectedModel}`,
+  // Group machines by model for sidebar display
+  const activeMachines = rfq.machines.filter(m => m.selectedModel);
+  const machineGroups = {};
+  activeMachines.forEach(m => {
+    if (!machineGroups[m.selectedModel]) machineGroups[m.selectedModel] = [];
+    machineGroups[m.selectedModel].push(m);
+  });
+  const machineTabs = Object.keys(machineGroups).map(model => {
+    const slots = machineGroups[model];
+    if (slots.length === 1) {
+      return { id: `machine-${slots[0].slotNumber}`, label: model, icon: 'machine' };
+    }
+    return {
+      id: `machine-group-${model}`,
+      label: `${model} (${slots.length})`,
       icon: 'machine',
-    }));
+      isGroup: true,
+      subItems: slots.map((s, i) => ({
+        id: `machine-${s.slotNumber}`,
+        label: `Unit ${i + 1}`,
+        icon: 'machine',
+      })),
+    };
+  });
+  // Track which machine groups are expanded
+  const [expandedMachineGroups, setExpandedMachineGroups] = React.useState({});
 
   // Dashboard-context sidebar: quick actions relevant when not inside a OneDoc
   const dashboardNavGroups = [
@@ -3222,6 +3241,64 @@ function Sidebar({ state, setState, collapsed, setCollapsed, mobileOpen, setMobi
 
               {/* Nav items */}
               {group.items.map(item => {
+                if (item.isGroup) {
+                  const groupExpanded = expandedMachineGroups[item.id];
+                  const hasActiveSub = item.subItems && item.subItems.some(si => activeTab === si.id);
+                  const IconComp = Icons[item.icon];
+                  return (
+                    <React.Fragment key={item.id}>
+                      <button
+                        onClick={() => setExpandedMachineGroups(prev => ({...prev, [item.id]: !prev[item.id]}))}
+                        title={!isExpanded ? item.label : undefined}
+                        className={`nav-item w-full flex items-center rounded-btn mb-0.5 transition-all
+                          ${isExpanded ? 'gap-2.5 px-2 py-2' : 'justify-center px-1 py-2.5'}
+                          ${hasActiveSub ? 'nav-item-active text-white' : 'nav-item-inactive text-white/65 hover:text-white'}`}
+                      >
+                        <span className={`flex-shrink-0 ${hasActiveSub ? 'text-p-orange' : 'text-white/60'}`} style={{color: hasActiveSub ? '#e54102' : undefined}}>
+                          {IconComp && <IconComp />}
+                        </span>
+                        {isExpanded && (
+                          <span className="font-body text-[13px] font-medium truncate text-left leading-snug flex-1">
+                            {item.label}
+                          </span>
+                        )}
+                        {isExpanded && (
+                          <span className="text-white/40 flex-shrink-0 transition-transform" style={{transform: groupExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>
+                            <Icons.chevronRight />
+                          </span>
+                        )}
+                      </button>
+                      {(groupExpanded || hasActiveSub) && item.subItems.map(sub => {
+                        const subActive = activeTab === sub.id;
+                        return (
+                          <button
+                            key={sub.id}
+                            onClick={() => navigate(sub.id)}
+                            title={!isExpanded ? sub.label : undefined}
+                            className={`nav-item w-full flex items-center rounded-btn mb-0.5 transition-all
+                              ${isExpanded ? 'gap-2.5 py-1.5' : 'justify-center px-1 py-2'}
+                              ${subActive ? 'nav-item-active text-white' : 'nav-item-inactive text-white/50 hover:text-white'}`}
+                            style={isExpanded ? {paddingLeft:'2.5rem', paddingRight:'0.5rem'} : undefined}
+                          >
+                            {isExpanded && (
+                              <span className={`w-1 h-1 rounded-full flex-shrink-0 ${subActive ? 'bg-p-orange' : 'bg-white/30'}`} />
+                            )}
+                            {isExpanded && (
+                              <span className="font-body text-[12px] font-medium truncate text-left leading-snug">
+                                {sub.label}
+                              </span>
+                            )}
+                            {!isExpanded && (
+                              <span className={`flex-shrink-0 ${subActive ? 'text-p-orange' : 'text-white/60'}`} style={{color: subActive ? '#e54102' : undefined}}>
+                                <Icons.machine />
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                }
                 const isActive = activeTab === item.id;
                 const IconComp = Icons[item.icon];
                 return (
@@ -4316,11 +4393,37 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
   const { rfq } = state;
   const updateRfq = (key, val) => setState(p => ({...p, rfq:{...p.rfq, [key]:val}}));
 
+  // State for duplicate-machine copy dialog
+  const [dupeCopyDialog, setDupeCopyDialog] = React.useState(null); // { slotIdx, model, sourceSlot }
+
   function selectMachine(slotIdx, model) {
+    if (!model) {
+      setState(p => {
+        const machines = p.rfq.machines.map((m, i) => i !== slotIdx ? m : { ...m, selectedModel: null, configuration: null });
+        return {...p, rfq:{...p.rfq, machines}};
+      });
+      return;
+    }
+    // Check if another slot already has the same model with config data
+    const existingSlot = state.rfq.machines.find((m, i) => i !== slotIdx && m.selectedModel === model && m.configuration);
+    if (existingSlot) {
+      // Show the copy dialog
+      setDupeCopyDialog({ slotIdx, model, sourceSlot: existingSlot });
+    } else {
+      applyMachineSelection(slotIdx, model, false, null);
+    }
+  }
+
+  function applyMachineSelection(slotIdx, model, copyFrom, sourceSlot) {
     setState(p => {
       const machines = p.rfq.machines.map((m, i) => {
         if (i !== slotIdx) return m;
-        return { ...m, selectedModel: model || null, configuration: model ? { templateType: getModelToTemplate(p.machineRegistry)[model], model } : null };
+        if (copyFrom && sourceSlot && sourceSlot.configuration) {
+          // Deep clone the source configuration
+          const clonedConfig = JSON.parse(JSON.stringify(sourceSlot.configuration));
+          return { ...m, selectedModel: model, configuration: clonedConfig };
+        }
+        return { ...m, selectedModel: model, configuration: { templateType: getModelToTemplate(p.machineRegistry)[model], model } };
       });
       return {...p, rfq:{...p.rfq, machines}};
     });
@@ -4537,6 +4640,35 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
           </button>
         </div>
       </Card>
+
+      {/* Duplicate Machine Copy Dialog */}
+      {dupeCopyDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{backgroundColor:'rgba(0,0,0,0.5)'}}>
+          <div className="bg-white rounded-card shadow-xl max-w-md w-full p-6">
+            <h3 className="font-heading font-bold text-lg text-p-blurple mb-2">Duplicate Machine Detected</h3>
+            <p className="text-sm font-body text-p-gray mb-1">
+              You already have a <strong className="text-p-blurple">{dupeCopyDialog.model}</strong> configured (Unit #{dupeCopyDialog.sourceSlot.slotNumber}).
+            </p>
+            <p className="text-sm font-body text-p-gray mb-5">
+              Would you like to copy its configuration to this new unit?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { applyMachineSelection(dupeCopyDialog.slotIdx, dupeCopyDialog.model, true, dupeCopyDialog.sourceSlot); setDupeCopyDialog(null); }}
+                className="flex-1 px-4 py-2.5 text-sm font-heading font-semibold rounded-btn text-white bg-p-orange hover:bg-p-orange-hover transition-colors"
+              >
+                Yes, Copy Configuration
+              </button>
+              <button
+                onClick={() => { applyMachineSelection(dupeCopyDialog.slotIdx, dupeCopyDialog.model, false, null); setDupeCopyDialog(null); }}
+                className="flex-1 px-4 py-2.5 text-sm font-heading font-semibold rounded-btn text-p-gray border border-gray-300 hover:bg-gray-50 transition-colors"
+              >
+                No, Start Fresh
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Card title="Integration Complexity Level">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -5356,6 +5488,11 @@ function MachineTab({ state, setState, slotNumber }) {
   const config = slot.configuration || { templateType, model };
   const limits = getEquipmentLimits(state.machineRegistry)[model] || {};
 
+  // Determine unit label for duplicate models
+  const sameModelSlots = state.rfq.machines.filter(m => m.selectedModel === model).sort((a,b) => a.slotNumber - b.slotNumber);
+  const unitIndex = sameModelSlots.findIndex(m => m.slotNumber === slotNumber) + 1;
+  const isDuplicate = sameModelSlots.length > 1;
+
   function updateConfig(path, value) {
     setState(prev => {
       const machines = prev.rfq.machines.map(m => {
@@ -5380,19 +5517,32 @@ function MachineTab({ state, setState, slotNumber }) {
     });
   }
 
+  var configContent = null;
   if (['CaseErector','CaseSealer','BlissFormer','CompactPal','BagInserter','BagUncuffer'].includes(templateType)) {
-    return <StandardMachineConfig model={model} templateType={templateType} config={config} updateConfig={updateConfig} limits={limits} state={state} />;
+    configContent = <StandardMachineConfig model={model} templateType={templateType} config={config} updateConfig={updateConfig} limits={limits} state={state} />;
+  } else if (templateType === 'Pack' || templateType === 'Insert' || templateType === 'RPCMX') {
+    configContent = <PackMachineConfig model={model} templateType={templateType} config={config} updateConfig={updateConfig} limits={limits} state={state} />;
+  } else if (templateType === 'OEM') {
+    configContent = <OEMConfig model={model} config={config} updateConfig={updateConfig} />;
+  } else if (templateType === 'Conveyance') {
+    configContent = <ConveyanceConfig model={model} config={config} updateConfig={updateConfig} />;
+  } else {
+    configContent = <div className="text-center py-10">Machine template: {templateType}</div>;
   }
-  if (templateType === 'Pack' || templateType === 'Insert' || templateType === 'RPCMX') {
-    return <PackMachineConfig model={model} templateType={templateType} config={config} updateConfig={updateConfig} limits={limits} state={state} />;
-  }
-  if (templateType === 'OEM') {
-    return <OEMConfig model={model} config={config} updateConfig={updateConfig} />;
-  }
-  if (templateType === 'Conveyance') {
-    return <ConveyanceConfig model={model} config={config} updateConfig={updateConfig} />;
-  }
-  return <div className="text-center py-10">Machine template: {templateType}</div>;
+
+  return (
+    <div>
+      {isDuplicate && (
+        <div className="mb-4 flex items-center gap-2">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-btn text-xs font-heading font-semibold text-white bg-p-blurple">
+            <Icons.machine />
+            {model} — Unit {unitIndex} of {sameModelSlots.length}
+          </span>
+        </div>
+      )}
+      {configContent}
+    </div>
+  );
 }
 
 function StandardMachineConfig({ model, templateType, config, updateConfig, limits, state }) {
@@ -7826,13 +7976,34 @@ function MobileBottomNav({ activeTab, onNavigate, moreOpen, setMoreOpen, rfq }) 
 }
 
 function MobileMoreSheet({ open, onClose, activeTab, onNavigate, rfq, onSignOut }) {
+  var _mobileExpanded = React.useState({});
+  var mobileExpanded = _mobileExpanded[0];
+  var setMobileExpanded = _mobileExpanded[1];
+
   if (!open) return null;
 
-  var machineItems = rfq.machines
-    .filter(function(m) { return m.selectedModel; })
-    .map(function(m) {
-      return { id: 'machine-' + m.slotNumber, label: '#' + m.slotNumber + ' - ' + m.selectedModel, icon: Icons.machine };
-    });
+  // Group machines by model
+  var activeMachines = rfq.machines.filter(function(m) { return m.selectedModel; });
+  var mGroups = {};
+  activeMachines.forEach(function(m) {
+    if (!mGroups[m.selectedModel]) mGroups[m.selectedModel] = [];
+    mGroups[m.selectedModel].push(m);
+  });
+  var machineItems = Object.keys(mGroups).map(function(model) {
+    var slots = mGroups[model];
+    if (slots.length === 1) {
+      return { id: 'machine-' + slots[0].slotNumber, label: model, icon: Icons.machine };
+    }
+    return {
+      id: 'machine-group-' + model,
+      label: model + ' (' + slots.length + ')',
+      icon: Icons.machine,
+      isGroup: true,
+      subItems: slots.map(function(s, i) {
+        return { id: 'machine-' + s.slotNumber, label: 'Unit ' + (i + 1), icon: Icons.machine };
+      }),
+    };
+  });
 
   var sections = [
     {
@@ -7871,6 +8042,40 @@ function MobileMoreSheet({ open, onClose, activeTab, onNavigate, rfq, onSignOut 
                 {section.label}
               </div>
               {section.items.map(function(item) {
+                if (item.isGroup) {
+                  var gExpanded = mobileExpanded[item.id];
+                  var hasActiveSub = item.subItems && item.subItems.some(function(si) { return activeTab === si.id; });
+                  var IconComp = item.icon;
+                  return (
+                    <React.Fragment key={item.id}>
+                      <button
+                        className={'mobile-sheet-item' + (hasActiveSub ? ' active' : '')}
+                        onClick={function() { setMobileExpanded(function(prev) { var n = Object.assign({}, prev); n[item.id] = !n[item.id]; return n; }); }}
+                        style={{justifyContent:'space-between'}}
+                      >
+                        <span style={{display:'flex',alignItems:'center',gap:'10px'}}>
+                          {IconComp && <IconComp />}
+                          <span>{item.label}</span>
+                        </span>
+                        <span style={{fontSize:'10px',opacity:0.5,transform: gExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition:'transform 0.15s'}}>▶</span>
+                      </button>
+                      {(gExpanded || hasActiveSub) && item.subItems.map(function(sub) {
+                        var subActive = activeTab === sub.id;
+                        return (
+                          <button
+                            key={sub.id}
+                            className={'mobile-sheet-item' + (subActive ? ' active' : '')}
+                            style={{paddingLeft:'52px',fontSize:'14px'}}
+                            onClick={function() { onNavigate(sub.id); onClose(); }}
+                          >
+                            <span style={{width:'5px',height:'5px',borderRadius:'50%',background: subActive ? '#e54102' : '#5f5f5f40',flexShrink:0}} />
+                            <span>{sub.label}</span>
+                          </button>
+                        );
+                      })}
+                    </React.Fragment>
+                  );
+                }
                 var isActive = activeTab === item.id;
                 var IconComp = item.icon;
                 return (
