@@ -4013,7 +4013,7 @@ function buildAIPrompt(state) {
   if (rfq.specPackage) flags.push('Spec Package Included');
   if (rfq.specsFinalized) flags.push('Specs Finalized');
   if (rfq.customerTandCs) flags.push('Customer T&Cs Received');
-  if (rfq.tandCsSigned) flags.push('T&Cs Signed');
+  if (rfq.tandCsSigned) flags.push('T&Cs Finalized');
   if (flags.length > 0) {
     sections.push('- ' + flags.join(', '));
   }
@@ -4072,7 +4072,7 @@ function ExecutiveSummaryCard({ state, setState }) {
 
     var prompt = buildAIPrompt(state);
 
-    var systemInstruction = 'You are a senior sales engineer at Pearson Packaging Systems, a leading manufacturer of secondary packaging automation equipment (case erectors, sealers, palletizers, partition inserters, etc.) based in Spokane, WA.\n\nYour job is to write comprehensive, detailed executive summaries for internal project documentation (called "OneDocs"). These summaries are used by the sales team, estimators, and project managers for quick reference, proposal preparation, and project handoffs.\n\nGuidelines:\n- Write in a professional, direct tone with substance and detail\n- Write 4-6 detailed paragraphs that thoroughly cover the project scope\n- Start with the customer and opportunity context (company, location, quote type, RSM, partner if applicable)\n- Dedicate at least one full paragraph to the equipment scope: list every machine by name, describe key configuration details (construction type, voltage, NEMA rating, speed, seal method, case style, discharge options, controls)\n- Include a paragraph covering case/product/packing/pallet specifications: dimensions, weights, rates, pallet types, pattern details\n- Address facility constraints if provided: temperature range, height/width limits, environment, cleaning procedures, obstructions\n- Cover commercial details: booked value, lead time, payment terms, estimator, SSR assignments, shipping/install locations\n- Note project status flags (booked, specs finalized, T&Cs signed, etc.) and any special requirements or T&C notes\n- End with a forward-looking statement about next steps or project readiness\n- Use specific numbers, dimensions, and details from the data — never invent information\n- If a data section is missing, simply skip it without calling attention to the gap\n- Reference equipment by proper Pearson product model names\n- Format with clear paragraph breaks for readability\n- IMPORTANT: Always complete the entire summary. Cover every section of data fully and end with a proper concluding paragraph. Never stop mid-sentence or mid-paragraph.';
+    var systemInstruction = 'You are a senior sales engineer at Pearson Packaging Systems, a leading manufacturer of secondary packaging automation equipment (case erectors, sealers, palletizers, partition inserters, etc.) based in Spokane, WA.\n\nYour job is to write comprehensive, detailed executive summaries for internal project documentation (called "OneDocs"). These summaries are used by the sales team, estimators, and project managers for quick reference, proposal preparation, and project handoffs.\n\nGuidelines:\n- Write in a professional, direct tone with substance and detail\n- Write 4-6 detailed paragraphs that thoroughly cover the project scope\n- Start with the customer and opportunity context (company, location, quote type, RSM, partner if applicable)\n- Dedicate at least one full paragraph to the equipment scope: list every machine by name, describe key configuration details (construction type, voltage, NEMA rating, speed, seal method, case style, discharge options, controls)\n- Include a paragraph covering case/product/packing/pallet specifications: dimensions, weights, rates, pallet types, pattern details\n- Address facility constraints if provided: temperature range, height/width limits, environment, cleaning procedures, obstructions\n- Cover commercial details: booked value, lead time, payment terms, estimator, SSR assignments, shipping/install locations\n- Note project status flags (booked, specs finalized, T&Cs finalized, etc.) and any special requirements or T&C notes\n- End with a forward-looking statement about next steps or project readiness\n- Use specific numbers, dimensions, and details from the data — never invent information\n- If a data section is missing, simply skip it without calling attention to the gap\n- Reference equipment by proper Pearson product model names\n- Format with clear paragraph breaks for readability\n- IMPORTANT: Always complete the entire summary. Cover every section of data fully and end with a proper concluding paragraph. Never stop mid-sentence or mid-paragraph.';
 
     // Call Gemini API directly from the browser
     fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(key), {
@@ -4472,7 +4472,7 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
             <Toggle checked={rfq.specsFinalized} onChange={v => updateRfq('specsFinalized',v)} label="Specs Finalized?" />
             <Toggle checked={rfq.booked} onChange={v => updateRfq('booked',v)} label="Booked?" />
             <Toggle checked={rfq.customerTandCs} onChange={v => updateRfq('customerTandCs',v)} label="Customer T&Cs?" />
-            <Toggle checked={rfq.tandCsSigned} onChange={v => updateRfq('tandCsSigned',v)} label="T&Cs Signed?" />
+            <Toggle checked={rfq.tandCsSigned} onChange={v => updateRfq('tandCsSigned',v)} label="T&Cs Finalized?" />
           </div>
           <div className="mt-4 p-3 bg-p-alt rounded-btn text-xs border border-gray-100">
             <p className="font-heading font-semibold mb-1.5 text-p-blurple">Status summary</p>
@@ -4492,7 +4492,7 @@ function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
               {rfq.tandCsSigned
                 ? <span className="w-4 h-4 rounded-full bg-p-sage/30 text-p-forest flex items-center justify-center font-bold text-[10px]">✓</span>
                 : <span className="w-4 h-4 rounded-full bg-p-red/10 text-p-red flex items-center justify-center font-bold text-[10px]">✗</span>}
-              T&Cs: {rfq.tandCsSigned ? <span className="text-p-forest font-medium">Signed</span> : <span className="text-p-red">Unsigned</span>}
+              T&Cs: {rfq.tandCsSigned ? <span className="text-p-forest font-medium">Finalized</span> : <span className="text-p-red">Pending</span>}
             </p>
           </div>
         </Card>
@@ -5230,7 +5230,7 @@ function BookingTab({ state, setState }) {
         <div className="bg-p-red/10 border border-p-red/30 rounded-card p-4 text-sm">
           <strong className="text-p-red font-heading">Warning:</strong>
           {!state.rfq.specsFinalized && <span> Specifications have not been finalized.</span>}
-          {!state.rfq.tandCsSigned && <span> T&amp;Cs have not been signed.</span>}
+          {!state.rfq.tandCsSigned && <span> T&amp;Cs have not been finalized.</span>}
           <span> Customer should be aware of potential lead time delays and additional costs.</span>
         </div>
       )}
@@ -6850,7 +6850,7 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
 
   // Pending spec review list — OneDocs with customer specs but specs not finalized
   var pendingSpecReviewList = [];
-  // Pending T&C list — OneDocs with customer T&Cs but not yet signed
+  // Pending T&C list — OneDocs with customer T&Cs but not yet finalized
   var pendingTCList = [];
 
   // Category score accumulators: { sum, count } for my and all
@@ -6900,7 +6900,7 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
         pendingSpecReviewList.push({ proj: p, isMine: isMine });
       }
 
-      // Pending T&C resolution: customer T&Cs received but not signed
+      // Pending T&C resolution: customer T&Cs received but not finalized
       var hasCustomerTCs = fd.rfq && fd.rfq.customerTandCs;
       var tcsSigned = fd.rfq && fd.rfq.tandCsSigned;
       if (hasCustomerTCs && !tcsSigned) {
@@ -7178,7 +7178,7 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                   <span className="text-[10px] font-heading font-semibold text-purple-800/70 uppercase tracking-wider">Pending T&amp;C Agreement</span>
                   <p className="text-xs font-body text-purple-700/70 mt-0.5">
                     <strong className="font-heading text-purple-800">{stats.my.pendingTCs > 0 ? stats.my.pendingTCs + ' of mine' : ''}{stats.my.pendingTCs > 0 && stats.all.pendingTCs > stats.my.pendingTCs ? ' · ' : ''}{stats.all.pendingTCs > stats.my.pendingTCs ? (stats.all.pendingTCs - stats.my.pendingTCs) + ' others' : stats.my.pendingTCs === 0 ? stats.all.pendingTCs + ' total' : ''}</strong>
-                    {' — '}Customer T&amp;Cs received, not yet signed
+                    {' — '}Customer T&amp;Cs received, not yet finalized
                   </p>
                 </div>
               </div>
