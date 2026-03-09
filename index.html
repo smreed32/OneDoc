@@ -7059,10 +7059,7 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
 
   var stats = { all: { total: 0, recent: 0, machines: 0, booked: 0, pendingSpecs: 0, pendingTCs: 0 }, my: { total: 0, recent: 0, machines: 0, booked: 0, pendingSpecs: 0, pendingTCs: 0 } };
 
-  // Pending spec review list — OneDocs with customer specs but specs not finalized
-  var pendingSpecReviewList = [];
-  // Pending T&C list — OneDocs with customer T&Cs but not yet finalized
-  var pendingTCList = [];
+  // Pending counts tracked in stats (no lists needed — indicators shown inline in table)
 
   // Category score accumulators: { sum, count } for my and all
   var catKeys = ['identity','machConfig','cppData','facility','booking','finalization'];
@@ -7108,7 +7105,6 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
       if (hasCustomerSpecs && !specsFinalized) {
         stats.all.pendingSpecs++;
         if (isMine) stats.my.pendingSpecs++;
-        pendingSpecReviewList.push({ proj: p, isMine: isMine });
       }
 
       // Pending T&C resolution: customer T&Cs received but not finalized
@@ -7117,7 +7113,6 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
       if (hasCustomerTCs && !tcsSigned) {
         stats.all.pendingTCs++;
         if (isMine) stats.my.pendingTCs++;
-        pendingTCList.push({ proj: p, isMine: isMine });
       }
 
       // Needs attention: mine only, low completion or stale
@@ -7336,83 +7331,32 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
 
 
 
-      {/* Pending Action Items — Spec Review & T&C Resolution */}
+      {/* Pending Action Counters — Spec Review & T&C Resolution */}
       {!loadingDetails && (stats.all.pendingSpecs > 0 || stats.all.pendingTCs > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
-          {/* Pending Spec Review */}
+        <div className="flex flex-wrap gap-3 mb-6">
           {stats.all.pendingSpecs > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-card p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                </span>
-                <div>
-                  <span className="text-[10px] font-heading font-semibold text-amber-800/70 uppercase tracking-wider">Pending Spec Review</span>
-                  <p className="text-xs font-body text-amber-700/70 mt-0.5">
-                    <strong className="font-heading text-amber-800">{stats.my.pendingSpecs > 0 ? stats.my.pendingSpecs + ' of mine' : ''}{stats.my.pendingSpecs > 0 && stats.all.pendingSpecs > stats.my.pendingSpecs ? ' · ' : ''}{stats.all.pendingSpecs > stats.my.pendingSpecs ? (stats.all.pendingSpecs - stats.my.pendingSpecs) + ' others' : stats.my.pendingSpecs === 0 ? stats.all.pendingSpecs + ' total' : ''}</strong>
-                    {' — '}Specs received, review not finalized
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-1.5 mt-3">
-                {pendingSpecReviewList.slice(0, 5).map(function(item) {
-                  return (
-                    <div
-                      key={item.proj.id}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/60 hover:bg-white cursor-pointer transition-colors border border-amber-100"
-                      onClick={function() { onLoadProject(item.proj); }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-heading font-semibold text-p-blurple truncate block">{item.proj.projectName || 'Unnamed'}</span>
-                      </div>
-                      {item.isMine && <span className="text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-p-orange/10 text-p-orange">MINE</span>}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bebebe" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    </div>
-                  );
-                })}
-                {pendingSpecReviewList.length > 5 && (
-                  <p className="text-[10px] font-body text-amber-600/60 text-center mt-1">+ {pendingSpecReviewList.length - 5} more</p>
-                )}
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-card shadow-sm">
+              <span className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d4a017" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </span>
+              <div>
+                <span className="text-[10px] font-heading font-semibold text-amber-800/70 uppercase tracking-wider">Pending Spec Review</span>
+                <p className="text-xs font-body text-amber-700/70 mt-0.5">
+                  <strong className="font-heading text-amber-800">{stats.all.pendingSpecs}</strong> OneDoc{stats.all.pendingSpecs !== 1 ? 's' : ''} awaiting finalization
+                </p>
               </div>
             </div>
           )}
-
-          {/* Pending T&C Resolution */}
           {stats.all.pendingTCs > 0 && (
-            <div className="bg-purple-50 border border-purple-200 rounded-card p-4 shadow-sm">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                </span>
-                <div>
-                  <span className="text-[10px] font-heading font-semibold text-purple-800/70 uppercase tracking-wider">Pending T&amp;C Agreement</span>
-                  <p className="text-xs font-body text-purple-700/70 mt-0.5">
-                    <strong className="font-heading text-purple-800">{stats.my.pendingTCs > 0 ? stats.my.pendingTCs + ' of mine' : ''}{stats.my.pendingTCs > 0 && stats.all.pendingTCs > stats.my.pendingTCs ? ' · ' : ''}{stats.all.pendingTCs > stats.my.pendingTCs ? (stats.all.pendingTCs - stats.my.pendingTCs) + ' others' : stats.my.pendingTCs === 0 ? stats.all.pendingTCs + ' total' : ''}</strong>
-                    {' — '}Customer T&amp;Cs received, not yet finalized
-                  </p>
-                </div>
-              </div>
-              <div className="space-y-1.5 mt-3">
-                {pendingTCList.slice(0, 5).map(function(item) {
-                  return (
-                    <div
-                      key={item.proj.id}
-                      className="flex items-center gap-2.5 px-3 py-2 rounded-lg bg-white/60 hover:bg-white cursor-pointer transition-colors border border-purple-100"
-                      onClick={function() { onLoadProject(item.proj); }}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-xs font-heading font-semibold text-p-blurple truncate block">{item.proj.projectName || 'Unnamed'}</span>
-                      </div>
-                      {item.isMine && <span className="text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-p-orange/10 text-p-orange">MINE</span>}
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#bebebe" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-                    </div>
-                  );
-                })}
-                {pendingTCList.length > 5 && (
-                  <p className="text-[10px] font-body text-purple-600/60 text-center mt-1">+ {pendingTCList.length - 5} more</p>
-                )}
+            <div className="flex items-center gap-2.5 px-4 py-2.5 bg-purple-50 border border-purple-200 rounded-card shadow-sm">
+              <span className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </span>
+              <div>
+                <span className="text-[10px] font-heading font-semibold text-purple-800/70 uppercase tracking-wider">Pending T&amp;C Finalization</span>
+                <p className="text-xs font-body text-purple-700/70 mt-0.5">
+                  <strong className="font-heading text-purple-800">{stats.all.pendingTCs}</strong> OneDoc{stats.all.pendingTCs !== 1 ? 's' : ''} awaiting finalization
+                </p>
               </div>
             </div>
           )}
@@ -7542,12 +7486,17 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                 var fd = projectDetails[proj.id];
                 var machineCount = 0;
                 var qt = '';
+                var needsSpecReview = false;
+                var needsTCReview = false;
                 if (fd) {
                   machineCount = ((fd.rfq && fd.rfq.machines) || []).filter(function(m) { return m.selectedModel; }).length;
                   qt = (fd.rfq && fd.rfq.quoteType) || '';
+                  needsSpecReview = fd.specifications && fd.specifications.specType === 'customer' && fd.rfq && !fd.rfq.specsFinalized;
+                  needsTCReview = fd.rfq && fd.rfq.customerTandCs && !fd.rfq.tandCsSigned;
                 }
                 var qtColor = qt === 'Firm' ? 'bg-green-100 text-green-700' : qt === 'Budget' ? 'bg-yellow-100 text-yellow-700' : qt === 'Rebid' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600';
                 var completion = fd ? calculateCompletion(fd) : null;
+                var hasAttention = needsSpecReview || needsTCReview;
                 return (
                   <div
                     key={proj.id}
@@ -7558,6 +7507,8 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                     <div className="flex items-center gap-2 min-w-0 cursor-pointer" onClick={function() { onLoadProject(proj); }}>
                       <span className="font-heading font-semibold text-p-blurple text-sm truncate">{proj.projectName || 'Unnamed'}</span>
                       {isLast && <span className="hidden lg:inline flex-shrink-0 text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded bg-p-orange/15 text-p-orange">RECENT</span>}
+                      {needsSpecReview && <span className="hidden lg:inline flex-shrink-0 text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700" title="Specs received, review not finalized">SPECS</span>}
+                      {needsTCReview && <span className="hidden lg:inline flex-shrink-0 text-[9px] font-heading font-semibold px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-700" title="Customer T&Cs received, not yet finalized">T&amp;Cs</span>}
                     </div>
                     <div className="flex items-center">
                       <span className="text-xs font-body text-p-gray/70 truncate">{proj.ownerName || '—'}</span>
@@ -7591,7 +7542,11 @@ function DashboardView({ projects, loadingProjects, onLoadProject, onNewProject,
                       <div className="flex items-center gap-2 flex-1 min-w-0">
                         {loadingDetails || completion === null ? <span className="text-xs text-p-gray/30">—</span> : <CompletionRing percent={completion} size={28} strokeWidth={2.5} />}
                         <div className="min-w-0">
-                          <span className="text-xs font-body text-p-gray/50 truncate block">{proj.customerName || 'No company'}</span>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-body text-p-gray/50 truncate">{proj.customerName || 'No company'}</span>
+                            {needsSpecReview && <span className="w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="Pending spec review" />}
+                            {needsTCReview && <span className="w-2 h-2 rounded-full bg-purple-400 flex-shrink-0" title="Pending T&C finalization" />}
+                          </div>
                           <span className="text-xs font-body text-p-gray/30">{relativeTime(proj.updatedAt)}</span>
                         </div>
                       </div>
