@@ -3593,30 +3593,38 @@ async function setGeminiKey(key) {
 
 // Helper: get/set Quote Folder Base URL from Supabase (org-wide)
 var __quoteFolderBaseUrl = null;
+var __projectFolderBaseUrl = null;
 var __quoteFolderLoaded = false;
 
-async function loadQuoteFolderBaseUrl() {
-  if (__quoteFolderLoaded) return __quoteFolderBaseUrl || '';
+async function loadFolderBaseUrls() {
+  if (__quoteFolderLoaded) return { quotes: __quoteFolderBaseUrl || '', projects: __projectFolderBaseUrl || '' };
   try {
     var { data, error } = await supabaseClient
       .from('app_settings')
-      .select('quote_folder_base_url')
+      .select('quote_folder_base_url, project_folder_base_url')
       .eq('id', 'default')
       .single();
-    if (!error && data && data.quote_folder_base_url) {
-      __quoteFolderBaseUrl = data.quote_folder_base_url;
+    if (!error && data) {
+      __quoteFolderBaseUrl = data.quote_folder_base_url || '';
+      __projectFolderBaseUrl = data.project_folder_base_url || '';
     } else {
       __quoteFolderBaseUrl = '';
+      __projectFolderBaseUrl = '';
     }
   } catch(e) {
     __quoteFolderBaseUrl = '';
+    __projectFolderBaseUrl = '';
   }
   __quoteFolderLoaded = true;
-  return __quoteFolderBaseUrl || '';
+  return { quotes: __quoteFolderBaseUrl || '', projects: __projectFolderBaseUrl || '' };
 }
 
 function getQuoteFolderBaseUrl() {
   return __quoteFolderBaseUrl || '';
+}
+
+function getProjectFolderBaseUrl() {
+  return __projectFolderBaseUrl || '';
 }
 
 async function setQuoteFolderBaseUrl(url) {
@@ -3630,6 +3638,20 @@ async function setQuoteFolderBaseUrl(url) {
       .eq('id', 'default');
   } catch(e) {
     console.error('Failed to save quote folder URL to database:', e);
+  }
+}
+
+async function setProjectFolderBaseUrl(url) {
+  __projectFolderBaseUrl = url;
+  __quoteFolderLoaded = true;
+  try {
+    var user = (await supabaseClient.auth.getUser()).data.user;
+    await supabaseClient
+      .from('app_settings')
+      .update({ project_folder_base_url: url, updated_by: user ? user.id : null })
+      .eq('id', 'default');
+  } catch(e) {
+    console.error('Failed to save project folder URL to database:', e);
   }
 }
 
@@ -4192,7 +4214,7 @@ function ExecutiveSummaryCard({ state, setState }) {
 // TAB 1: REQUEST FOR QUOTE
 // ============================================================================
 
-function RFQTab({ state, setState, quoteFolderBaseUrl }) {
+function RFQTab({ state, setState, quoteFolderBaseUrl, projectFolderBaseUrl }) {
   const { rfq } = state;
   const updateRfq = (key, val) => setState(p => ({...p, rfq:{...p.rfq, [key]:val}}));
 
@@ -4252,30 +4274,56 @@ function RFQTab({ state, setState, quoteFolderBaseUrl }) {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
             <FormField label="Opportunity Number" required>
               <TextInput value={rfq.opportunityNumber} onChange={v => updateRfq('opportunityNumber', v.replace(/[^0-9]/g, ''))} required placeholder="Enter opportunity number" />
-              {quoteFolderBaseUrl && (
-                <a
-                  href={(() => {
-                    var base = quoteFolderBaseUrl;
-                    var opp = (rfq.opportunityNumber || '').trim();
-                    if (!opp) return base;
-                    // SharePoint: use ?id= parameter to navigate to subfolder
-                    // Extract the path portion before /Forms/ to build the folder path
-                    var formsIdx = base.indexOf('/Forms/');
-                    if (formsIdx >= 0) {
-                      var folderPath = base.substring(base.indexOf('/sites/'), formsIdx);
-                      return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'id=' + encodeURIComponent(folderPath + '/' + opp);
-                    }
-                    // Fallback: just append opp number
-                    return base.replace(/\/?$/, '/') + opp;
-                  })()}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-1 text-[11px] font-heading font-semibold text-p-orange hover:text-p-orange/80 hover:underline transition-colors"
-                >
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
-                  {rfq.opportunityNumber ? 'Open Quote Folder ' + rfq.opportunityNumber : 'Open Quotes Directory'}
-                  <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                </a>
+              {(quoteFolderBaseUrl || projectFolderBaseUrl) && (
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                  {quoteFolderBaseUrl && (
+                    <a
+                      href={(() => {
+                        var base = quoteFolderBaseUrl;
+                        var opp = (rfq.opportunityNumber || '').trim();
+                        if (!opp) return base;
+                        var formsIdx = base.indexOf('/Forms/');
+                        if (formsIdx >= 0) {
+                          var folderPath = base.substring(base.indexOf('/sites/'), formsIdx);
+                          return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'id=' + encodeURIComponent(folderPath + '/' + opp);
+                        }
+                        return base.replace(/\/?$/, '/') + opp;
+                      })()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-p-orange hover:text-p-orange/80 hover:underline transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                      Quotes DC
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
+                  )}
+                  {projectFolderBaseUrl && (
+                    <a
+                      href={(() => {
+                        var base = projectFolderBaseUrl;
+                        var opp = (rfq.opportunityNumber || '').trim();
+                        var company = (rfq.customerName || '').trim();
+                        if (!opp) return base;
+                        // Projects DC folder pattern: "Company Name P-OppNumber"
+                        var folderName = (company ? company + ' P-' : 'P-') + opp;
+                        var formsIdx = base.indexOf('/Forms/');
+                        if (formsIdx >= 0) {
+                          var folderPath = base.substring(base.indexOf('/sites/'), formsIdx);
+                          return base + (base.indexOf('?') >= 0 ? '&' : '?') + 'id=' + encodeURIComponent(folderPath + '/' + folderName);
+                        }
+                        return base.replace(/\/?$/, '/') + encodeURIComponent(folderName);
+                      })()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-[11px] font-heading font-semibold text-p-teal hover:text-p-teal/80 hover:underline transition-colors"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+                      Projects DC
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    </a>
+                  )}
+                </div>
               )}
             </FormField>
             <FormField label="Company Name" required>
@@ -5837,7 +5885,7 @@ async function __checkAdminPw(pw) {
   return hex === __ADMIN_HASH;
 }
 
-function MachineAdminTab({ state, setState, quoteFolderBaseUrl, setQuoteFolderBaseUrlState }) {
+function MachineAdminTab({ state, setState, quoteFolderBaseUrl, setQuoteFolderBaseUrlState, projectFolderBaseUrl, setProjectFolderBaseUrlState }) {
   const [unlocked, setUnlocked] = React.useState(__adminUnlocked);
   const [pwInput, setPwInput] = React.useState('');
   const [pwError, setPwError] = React.useState(false);
@@ -5849,10 +5897,14 @@ function MachineAdminTab({ state, setState, quoteFolderBaseUrl, setQuoteFolderBa
   const [toast, setToast] = React.useState(null);
   const [confirmDelete, setConfirmDelete] = React.useState(null);
 
-  // Quote Folder URL local editing state
+  // Folder URL local editing state
   const [quoteFolderInput, setQuoteFolderInput] = React.useState(quoteFolderBaseUrl || '');
   const [quoteFolderSaved, setQuoteFolderSaved] = React.useState(false);
   React.useEffect(function() { setQuoteFolderInput(quoteFolderBaseUrl || ''); }, [quoteFolderBaseUrl]);
+
+  const [projectFolderInput, setProjectFolderInput] = React.useState(projectFolderBaseUrl || '');
+  const [projectFolderSaved, setProjectFolderSaved] = React.useState(false);
+  React.useEffect(function() { setProjectFolderInput(projectFolderBaseUrl || ''); }, [projectFolderBaseUrl]);
 
   const emptyForm = { model:'', category:'', customCategory:'', templateType:'', limits:{} };
   const [form, setForm] = React.useState(emptyForm);
@@ -6084,10 +6136,14 @@ function MachineAdminTab({ state, setState, quoteFolderBaseUrl, setQuoteFolderBa
 
       {/* App Settings */}
       <Card title="App Settings">
-        <div className="space-y-4">
+        <p className="text-[11px] font-body text-p-gray/50 mb-4">Configure SharePoint document center links. All users will see quick-access links on the RFQ tab below the Opportunity Number field.</p>
+        <div className="space-y-5">
+          {/* Quotes DC */}
           <div>
-            <label className="block text-xs font-heading font-semibold text-p-blurple mb-1.5">Quote Folder Base URL</label>
-            <p className="text-[11px] font-body text-p-gray/50 mb-2">SharePoint or shared drive URL where quote folders are stored. Each folder should be named by Opportunity Number. All users will see a "Open Quote Folder" link on the RFQ tab.</p>
+            <label className="block text-xs font-heading font-semibold text-p-blurple mb-1">
+              <span className="inline-flex items-center gap-1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e54102" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Quotes DC Base URL</span>
+            </label>
+            <p className="text-[10px] font-body text-p-gray/40 mb-1.5">Folders named by Opportunity Number (e.g., 188123)</p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -6102,17 +6158,42 @@ function MachineAdminTab({ state, setState, quoteFolderBaseUrl, setQuoteFolderBa
                   setQuoteFolderBaseUrl(quoteFolderInput.trim());
                   setQuoteFolderBaseUrlState(quoteFolderInput.trim());
                   setQuoteFolderSaved(true);
-                  setToast({ type: 'success', text: 'Quote folder URL saved.' });
+                  setToast({ type: 'success', text: 'Quotes DC URL saved.' });
                   setTimeout(() => setQuoteFolderSaved(false), 3000);
                 }}
                 className={'px-4 py-2 rounded-btn text-sm font-heading font-semibold transition-colors ' + (quoteFolderSaved ? 'bg-p-forest text-white' : 'bg-p-blurple text-white hover:bg-p-blurple/90')}
               >{quoteFolderSaved ? '✓ Saved' : 'Save'}</button>
             </div>
-            {quoteFolderInput && (
-              <p className="text-[10px] font-body text-p-gray/40 mt-1.5 break-all">
-                Preview: {quoteFolderInput}{quoteFolderInput.indexOf('/Forms/') >= 0 ? '?id=.../123456' : '/123456'}
-              </p>
-            )}
+          </div>
+
+          <div className="border-t border-gray-100"></div>
+
+          {/* Projects DC */}
+          <div>
+            <label className="block text-xs font-heading font-semibold text-p-blurple mb-1">
+              <span className="inline-flex items-center gap-1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6790a0" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg> Projects DC Base URL</span>
+            </label>
+            <p className="text-[10px] font-body text-p-gray/40 mb-1.5">Folders named as "Company Name P-OppNumber" (e.g., Kleen Test P-188123)</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={projectFolderInput}
+                onChange={e => { setProjectFolderInput(e.target.value); setProjectFolderSaved(false); }}
+                placeholder="https://yourcompany.sharepoint.com/sites/DC/Project/Forms/AllItems.aspx"
+                className="flex-1 px-3 py-2 border border-gray-200 rounded-btn text-sm font-body text-p-gray focus:border-p-orange focus:ring-1 focus:ring-p-orange/20 transition-colors"
+                style={{outline:'none'}}
+              />
+              <button
+                onClick={() => {
+                  setProjectFolderBaseUrl(projectFolderInput.trim());
+                  setProjectFolderBaseUrlState(projectFolderInput.trim());
+                  setProjectFolderSaved(true);
+                  setToast({ type: 'success', text: 'Projects DC URL saved.' });
+                  setTimeout(() => setProjectFolderSaved(false), 3000);
+                }}
+                className={'px-4 py-2 rounded-btn text-sm font-heading font-semibold transition-colors ' + (projectFolderSaved ? 'bg-p-forest text-white' : 'bg-p-blurple text-white hover:bg-p-blurple/90')}
+              >{projectFolderSaved ? '✓ Saved' : 'Save'}</button>
+            </div>
           </div>
         </div>
       </Card>
@@ -7742,10 +7823,14 @@ function App() {
   const [attachmentsPanelOpen, setAttachmentsPanelOpen] = React.useState(false);
   const [attachmentCount, setAttachmentCount] = React.useState(0);
 
-  // Quote Folder base URL (loaded from app_settings)
+  // Folder base URLs (loaded from app_settings)
   const [quoteFolderBaseUrl, setQuoteFolderBaseUrlState] = React.useState('');
+  const [projectFolderBaseUrl, setProjectFolderBaseUrlState] = React.useState('');
   React.useEffect(function() {
-    loadQuoteFolderBaseUrl().then(function(url) { setQuoteFolderBaseUrlState(url); });
+    loadFolderBaseUrls().then(function(urls) {
+      setQuoteFolderBaseUrlState(urls.quotes);
+      setProjectFolderBaseUrlState(urls.projects);
+    });
   }, []);
 
   // Load attachment count when project changes
@@ -8019,14 +8104,14 @@ function App() {
     const { activeTab } = state;
     switch (activeTab) {
       case 'dashboard': return null; // Rendered separately in the layout
-      case 'rfq': return <RFQTab state={state} setState={setState} quoteFolderBaseUrl={quoteFolderBaseUrl} />;
+      case 'rfq': return <RFQTab state={state} setState={setState} quoteFolderBaseUrl={quoteFolderBaseUrl} projectFolderBaseUrl={projectFolderBaseUrl} />;
       case 'cpp': return <CPPTab state={state} setState={setState} />;
       case 'facility': return <FacilityTab state={state} setState={setState} />;
       case 'specs': return <SpecsTab state={state} setState={setState} />;
       case 'booking': return <BookingTab state={state} setState={setState} />;
       case 'tandc': return <TandCTab state={state} setState={setState} />;
       case 'revisions': return <RevisionsTab state={state} setState={setState} />;
-      case 'machine-admin': return <MachineAdminTab state={state} setState={setState} quoteFolderBaseUrl={quoteFolderBaseUrl} setQuoteFolderBaseUrlState={setQuoteFolderBaseUrlState} />;
+      case 'machine-admin': return <MachineAdminTab state={state} setState={setState} quoteFolderBaseUrl={quoteFolderBaseUrl} setQuoteFolderBaseUrlState={setQuoteFolderBaseUrlState} projectFolderBaseUrl={projectFolderBaseUrl} setProjectFolderBaseUrlState={setProjectFolderBaseUrlState} />;
       default:
         if (activeTab.startsWith('machine-')) {
           const slotNum = parseInt(activeTab.split('-')[1]);
